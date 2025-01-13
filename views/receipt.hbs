@@ -1,0 +1,127 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Booking Receipt</title>
+    <style>
+      body { font-family: Arial, sans-serif; line-height: 1.6; color: #333;
+      max-width: 800px; margin: 0 auto; padding: 20px; } .header { text-align:
+      center; margin-bottom: 30px; border-bottom: 2px solid #004aad;
+      padding-bottom: 20px; } .logo { width: 150px; height: auto; }
+      .booking-info { margin-bottom: 30px; } .property-details {
+      background-color: #f8f9fa; padding: 20px; border-radius: 8px;
+      margin-bottom: 30px; } .payment-details { border-top: 1px solid #ddd;
+      padding-top: 20px; margin-top: 20px; } .total { font-size: 18px;
+      font-weight: bold; color: #004aad; } table { width: 100%; border-collapse:
+      collapse; margin-bottom: 20px; } th, td { padding: 12px; text-align: left;
+      border-bottom: 1px solid #ddd; } th { background-color: #f8f9fa; } .footer
+      { text-align: center; margin-top: 40px; font-size: 14px; color: #666;
+      border-top: 1px solid #ddd; padding-top: 20px; } .contact-box {
+      background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;
+      padding: 15px; margin-top: 20px; } .contact-grid { display: grid;
+      grid-template-columns: 1fr 1fr; gap: 20px; }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <img src="{{logo}}" alt="Shortlet360 Logo" class="logo" />
+      <h2>Booking Confirmation</h2>
+      <p>Booking Reference: {{booking._id}}</p>
+      <p style="color: #22c55e;">Status:
+        {{capitalize booking.booking_status}}</p>
+    </div>
+
+    <div class="booking-info">
+      <h3>Dear {{booking.payment.customer.name}},</h3>
+      <p>Thank you for booking with us. We're looking forward to welcoming you
+        as our guest.</p>
+    </div>
+
+    <div class="property-details">
+      <h3>{{booking.property_id.property_name}}</h3>
+      <p>{{booking.property_id.location.street_address}},
+        {{booking.property_id.location.city}},
+        {{booking.property_id.location.state}},
+        {{booking.property_id.location.country}}</p>
+
+      <table>
+        <tr>
+          <th>Guest Name</th>
+          <th>Number of Guests</th>
+          <th>Contact</th>
+        </tr>
+        <tr>
+          <td>{{booking.payment.customer.name}}</td>
+          <td>{{booking.guest_count}}</td>
+          <td>{{booking.payment.customer.phone_number}}</td>
+        </tr>
+      </table>
+
+      <div style="margin-top: 20px;">
+        <p><strong>Property Type:</strong>
+          {{capitalize booking.property_id.property_type}}
+          -
+          {{booking.property_id.bedroom_count}}
+          Bedroom</p>
+        <p><strong>Check-in Date:</strong>
+          {{formatDate booking.check_in_date}}</p>
+        <p><strong>Check-out Date:</strong>
+          {{formatDate booking.check_out_date}}</p>
+        <p><strong>Estimated Arrival Time:</strong>
+          {{booking.estimated_arrival}}</p>
+      </div>
+    </div>
+
+    <div class="payment-details">
+      <h3>Payment Details</h3>
+      <table>
+        <tr>
+          <td><strong>Total Amount</strong></td>
+          <td class="total">{{formatCurrency booking.total_price}}</td>
+        </tr>
+        <tr>
+          <td>Payment Status</td>
+          <td>{{capitalize booking.payment_status}}</td>
+        </tr>
+        <tr>
+          <td>Transaction Reference</td>
+          <td>{{booking.payment.tx_ref}}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="margin-top: 30px;">
+      <h3>House Rules</h3>
+      <ul>
+        {{#each booking.property_id.house_rules}}
+          <li>{{this}}</li>
+        {{/each}}
+      </ul>
+    </div>
+
+    <div class="contact-box">
+      <div class="contact-grid">
+        <div>
+          <h4 style="color: #004aad; margin-bottom: 10px;">Guest Information</h4>
+          <p style="margin: 5px 0;">Name: {{booking.payment.customer.name}}</p>
+          <p style="margin: 5px 0;">Email:
+            {{booking.payment.customer.email}}</p>
+          <p style="margin: 5px 0;">Phone:
+            {{booking.payment.customer.phone_number}}</p>
+        </div>
+        <div>
+          <h4 style="color: #004aad; margin-bottom: 10px;">Shortlet360 Support</h4>
+          <p style="margin: 5px 0;">Email: support@shortlet360.com</p>
+          <p style="margin: 5px 0;">Phone: +234 (901) 111-1111</p>
+          <p style="margin: 5px 0;">Hours: 24/7 Customer Support</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>Shortlet360 - Your Trusted Short-let Accommodation Platform</p>
+      <p>Lagos, Nigeria</p>
+      <p>Website: www.shortlet360.com</p>
+      <p>© {{currentYear}} Shortlet360. All rights reserved.</p>
+    </div>
+  </body>
+</html>

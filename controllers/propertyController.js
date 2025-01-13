@@ -1,0 +1,334 @@
+const Property = require("../models/property");
+const Booking = require("../models/booking");
+const { BadRequestError, NotFoundError } = require("../errors");
+
+const propertyController = {
+  // Create a new property
+  createProperty: async (req, res) => {
+    const property = new Property({
+      ...req.body,
+      owner: req.user._id,
+    });
+    await property.save();
+    res.status(201).json({ success: true, data: property });
+  },
+
+  // Get all properties with filtering, searching and pagination
+  getAllProperties: async (req, res) => {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+
+      // Build filter object
+      let filter = {};
+
+      // Owner filter
+      if (req.query.owner) {
+        filter.owner = req.query.owner;
+      }
+
+      // Text search on property name and description
+      if (req.query.search) {
+        filter.$or = [
+          { property_name: { $regex: req.query.search, $options: "i" } },
+          { property_description: { $regex: req.query.search, $options: "i" } },
+        ];
+      }
+
+      // Price range filter
+      if (req.query.minPrice || req.query.maxPrice) {
+        filter["pricing.per_day.base_price"] = {};
+        if (req.query.minPrice)
+          filter["pricing.per_day.base_price"].$gte = parseInt(
+            req.query.minPrice
+          );
+        if (req.query.maxPrice)
+          filter["pricing.per_day.base_price"].$lte = parseInt(
+            req.query.maxPrice
+          );
+      }
+
+      // Property type filter
+      if (req.query.propertyType && req.query.propertyType !== "All Types") {
+        filter.property_type = req.query.propertyType.toLowerCase();
+      }
+
+      // Location filters
+      if (req.query.city) {
+        filter["location.city"] = { $regex: req.query.city, $options: "i" };
+      }
+      if (req.query.state) {
+        filter["location.state"] = { $regex: req.query.state, $options: "i" };
+      }
+
+      // Amenities filter (multiple amenities can be passed as comma-separated string)
+      if (req.query.amenities) {
+        const amenitiesList = req.query.amenities
+          .split(",")
+          .map((item) => item.trim());
+        filter.amenities = { $all: amenitiesList };
+      }
+
+      // Room filters
+      if (req.query.bedrooms) {
+        filter.bedroom_count = parseInt(req.query.bedrooms);
+      }
+      if (req.query.bathrooms) {
+        filter.bathroom_count = parseInt(req.query.bathrooms);
+      }
+      if (req.query.maxGuests) {
+        filter.max_guests = { $gte: parseInt(req.query.maxGuests) };
+      }
+
+      // Active status filter
+      if (req.query.isActive !== undefined) {
+        filter.is_active = req.query.isActive === "true";
+      }
+
+      // Get total count for pagination
+      const total = await Property.countDocuments(filter);
+
+      // Get filtered and paginated properties
+      const properties = await Property.find(filter)
+        .populate("owner", "name email")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      res.status(200).json({
+        success: true,
+        data: properties,
+        pagination: {
+          current: page,
+          total: Math.ceil(total / limit),
+          pages: Math.ceil(total / limit),
+          perPage: limit,
+          totalDocs: total,
+          hasNextPage: page < Math.ceil(total / limit),
+          hasPrevPage: page > 1,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error fetching properties",
+        error: error.message,
+      });
+    }
+  },
+
+  // Get single property
+  getProperty: async (req, res) => {
+    const property = await Property.findById(req.params.id).populate(
+      "owner",
+      "name email"
+    );
+
+    if (!property) {
+      throw new NotFoundError("Property not found");
+    }
+
+    res.status(200).json({ success: true, data: property });
+  },
+
+  // Update property
+  updateProperty: async (req, res) => {
+    const property = await Property.findOneAndUpdate(
+      { _id: req.params.id, owner: req.user._id },
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    if (!property) {
+      throw new NotFoundError(
+        "Property not found or you are not authorized to update it"
+      );
+    }
+
+    res.status(200).json({ success: true, data: property });
+  },
+
+  // Delete property
+  deleteProperty: async (req, res) => {
+    const property = await Property.findOneAndDelete({
+      _id: req.params.id,
+      owner: req.user._id,
+    });
+
+    if (!property) {
+      throw new NotFoundError(
+        "Property not found or you are not authorized to delete it"
+      );
+    }
+
+    res.status(200).json({ success: true, data: {} });
+  },
+
+  // Check property availability
+  checkAvailability: async (req, res) => {
+    const { check_in_date, check_out_date } = req.body;
+    const propertyId = req.params.id;
+
+    if (!check_in_date || !check_out_date) {
+      throw new BadRequestError("Please provide check-in and check-out dates");
+    }
+
+    const checkInDate = new Date(check_in_date);
+    const checkOutDate = new Date(check_out_date);
+
+    if (checkInDate >= checkOutDate) {
+      throw new BadRequestError("Check-in date must be before check-out date");
+    }
+
+    if (checkInDate < new Date()) {
+      throw new BadRequestError("Check-in date cannot be in the past");
+    }
+
+    const property = await Property.findById(propertyId);
+    if (!property) {
+      throw new NotFoundError("Property not found");
+    }
+
+    const conflictingBookings = await Booking.find({
+      property_id: propertyId,
+      booking_status: { $in: ["confirmed", "pending"] },
+      $or: [
+        {
+          check_in_date: { $lte: checkOutDate },
+          check_out_date: { $gte: checkInDate },
+        },
+      ],
+    });
+
+    const isAvailable = conflictingBookings.length === 0;
+    res.status(200).json({
+      success: true,
+      available: isAvailable,
+      conflicting_bookings: conflictingBookings.length,
+    });
+  },
+
+  // Get owner statistics
+  getOwnerStatistics: async (req, res) => {
+    try {
+      const ownerId = req.user._id;
+      const timeframe = req.query.timeframe || "30"; // Default to last 30 days
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(timeframe));
+
+      // Get all properties owned by the user
+      const properties = await Property.find({ owner: ownerId });
+      const propertyIds = properties.map((property) => property._id);
+
+      // Get all bookings for these properties within timeframe
+      const bookings = await Booking.find({
+        property_id: { $in: propertyIds },
+        createdAt: { $gte: startDate },
+      }).populate("property_id");
+
+      // Calculate statistics
+      const stats = {
+        total_properties: properties.length,
+        active_properties: properties.filter((p) => p.is_active).length,
+        total_bookings: bookings.length,
+        booking_status_breakdown: {
+          pending: bookings.filter((b) => b.booking_status === "pending")
+            .length,
+          confirmed: bookings.filter((b) => b.booking_status === "confirmed")
+            .length,
+          cancelled: bookings.filter((b) => b.booking_status === "cancelled")
+            .length,
+          completed: bookings.filter((b) => b.booking_status === "completed")
+            .length,
+        },
+        total_revenue: bookings
+          .filter((b) => b.booking_status === "completed")
+          .reduce((sum, booking) => sum + booking.total_price, 0),
+        average_booking_value:
+          bookings.length > 0
+            ? bookings.reduce((sum, booking) => sum + booking.total_price, 0) /
+              bookings.length
+            : 0,
+        occupancy_rate: await calculateOccupancyRate(propertyIds, startDate),
+        property_performance: await calculatePropertyPerformance(
+          propertyIds,
+          startDate
+        ),
+        recent_activity: await getRecentActivity(propertyIds, startDate),
+      };
+
+      res.status(200).json({
+        success: true,
+        timeframe: `Last ${timeframe} days`,
+        data: stats,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error fetching statistics",
+        error: error.message,
+      });
+    }
+  },
+};
+
+// Helper function to calculate occupancy rate
+async function calculateOccupancyRate(propertyIds, startDate) {
+  const bookings = await Booking.find({
+    property_id: { $in: propertyIds },
+    booking_status: { $in: ["confirmed", "completed"] },
+    check_in_date: { $gte: startDate },
+  });
+
+  const totalDays = propertyIds.length * 30; // Total available days across all properties
+  const bookedDays = bookings.reduce((sum, booking) => {
+    const checkIn = new Date(booking.check_in_date);
+    const checkOut = new Date(booking.check_out_date);
+    return sum + Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+  }, 0);
+
+  return totalDays > 0 ? (bookedDays / totalDays) * 100 : 0;
+}
+
+// Helper function to calculate individual property performance
+async function calculatePropertyPerformance(propertyIds, startDate) {
+  const performance = [];
+
+  for (const propertyId of propertyIds) {
+    const bookings = await Booking.find({
+      property_id: propertyId,
+      createdAt: { $gte: startDate },
+    }).populate("property_id");
+
+    const property = await Property.findById(propertyId);
+
+    performance.push({
+      property_id: propertyId,
+      property_name: property.property_name,
+      total_bookings: bookings.length,
+      revenue: bookings
+        .filter((b) => b.booking_status === "completed")
+        .reduce((sum, booking) => sum + booking.total_price, 0),
+      average_rating: property.average_rating || 0,
+      occupancy_rate: await calculateOccupancyRate([propertyId], startDate),
+    });
+  }
+
+  return performance;
+}
+
+// Helper function to get recent activity
+async function getRecentActivity(propertyIds, startDate) {
+  return await Booking.find({
+    property_id: { $in: propertyIds },
+    createdAt: { $gte: startDate },
+  })
+    .populate("property_id", "property_name")
+    .populate("guest", "name email")
+    .select("booking_status check_in_date check_out_date total_price createdAt")
+    .sort({ createdAt: -1 })
+    .limit(10);
+}
+
+module.exports = propertyController;

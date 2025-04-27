@@ -9,6 +9,7 @@ const {
 const sendEmail = require("../utils/sendEmails");
 const path = require("path");
 const ejs = require("ejs");
+const { generateShortPropertyId } = require("../utils/utils");
 
 const register = async (req, res) => {
   // Check if user already exists
@@ -18,7 +19,9 @@ const register = async (req, res) => {
     throw new BadRequestError("Another user with this email already exists.");
   }
 
-  const result = await User.create({ ...req.body });
+  const short_id = await generateShortPropertyId();
+
+  const result = await User.create({ ...req.body, short_id  });
 
   const token = result.createJWT();
   res.status(StatusCodes.CREATED).json({ user: result, token, role });

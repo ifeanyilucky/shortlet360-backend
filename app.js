@@ -9,8 +9,10 @@ const routes = require("./routes");
 const rateLimit = require("express-rate-limit");
 const errorHandlerMiddleware = require("./middlewares/error-handler");
 const notFoundMiddleware = require("./middlewares/not-found");
-const propertyRoutes = require('./routes/propertyRoutes');
-const bookingRoutes = require('./routes/bookingRoutes');
+const propertyRoutes = require("./routes/propertyRoutes");
+const bookingRoutes = require("./routes/bookingRoutes");
+const uploadRoutes = require("./routes/uploadRoutes");
+const favoriteRoutes = require("./routes/favoriteRoutes");
 
 dotenv.config();
 
@@ -30,7 +32,8 @@ const limiter = rateLimit({
   max: 1000,
   message: {
     status: 429,
-    message: "Too many requests from this IP, please try again after 15 minutes",
+    message:
+      "Too many requests from this IP, please try again after 15 minutes",
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -53,19 +56,23 @@ app.use("/api/v1", limiter);
 // Middleware
 app.use(express.json());
 app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb", parameterLimit: 50000 }));
+app.use(
+  express.urlencoded({ extended: true, limit: "50mb", parameterLimit: 50000 })
+);
 app.use(morgan("dev"));
 
 // Routes
 app.use("/api/v1", routes);
-// app.use("/api/v1/properties", propertyRoutes);
-// app.use("/api/v1/bookings", bookingRoutes);
+app.use("/api/v1/properties", propertyRoutes);
+app.use("/api/v1/bookings", bookingRoutes);
+app.use("/api/v1/uploads", uploadRoutes);
+app.use("/api/v1/favorites", favoriteRoutes);
 
 // Error handling middleware
 app.use(notFoundMiddleware);
 app.use(errorHandlerMiddleware);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 const start = async () => {
   try {

@@ -10,5 +10,10 @@ router.get("/:id", propertyController.getProperty);
 router.put("/:id", auth, propertyController.updateProperty);
 router.delete("/:id", auth, propertyController.deleteProperty);
 router.post("/:id/check-availability", propertyController.checkAvailability);
+router.put(
+  "/:id/unavailable-dates",
+  auth,
+  propertyController.updateUnavailableDates
+);
 
 module.exports = router;

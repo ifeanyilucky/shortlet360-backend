@@ -31,20 +31,26 @@ const bookingController = {
       check_out_date: { $gte: new Date() }, // Only get current and future bookings
     }).select("check_in_date check_out_date");
 
-    // Get the property's available dates from settings
-    const availableDates = property.available_dates || [];
+    // Combine property's unavailable dates with booked dates
+    const unavailableDates = [
+      // Include property's manually set unavailable dates
+      ...property.unavailable_dates.map((date) => ({
+        start_date: date.start_date,
+        end_date: date.end_date,
+        reason: date.reason || "External booking",
+      })),
+      // Include dates from confirmed/pending bookings
+      ...bookings.map((booking) => ({
+        start_date: booking.check_in_date,
+        end_date: booking.check_out_date,
+        reason: "Booked",
+      })),
+    ];
 
     // Format the response
     const response = {
       property_id,
-      available_dates: availableDates.map((date) => ({
-        start_date: date.start_date,
-        end_date: date.end_date,
-      })),
-      unavailable_dates: bookings.map((booking) => ({
-        start_date: booking.check_in_date,
-        end_date: booking.check_out_date,
-      })),
+      unavailable_dates: unavailableDates,
     };
 
     res.status(200).json({ success: true, data: response });
@@ -81,30 +87,27 @@ const bookingController = {
       const checkInDate = new Date(check_in_date);
       const checkOutDate = new Date(check_out_date);
 
-      if (checkInDate >= checkOutDate) {
-        throw new BadRequestError(
-          "Check-in date must be before check-out date"
-        );
-      }
-
-      if (checkInDate < new Date()) {
-        throw new BadRequestError("Check-in date cannot be in the past");
-      }
-
-      // Check if property exists
+      // Check against property's unavailable dates
       const property = await Property.findById(property_id);
       if (!property) {
         throw new NotFoundError("Property not found");
       }
 
-      // Validate guest count
-      if (guest_count > property.max_guests) {
+      // Check if the dates overlap with any unavailable dates
+      const isUnavailable = property.unavailable_dates.some((date) => {
+        return (
+          checkInDate <= new Date(date.end_date) &&
+          checkOutDate >= new Date(date.start_date)
+        );
+      });
+
+      if (isUnavailable) {
         throw new BadRequestError(
-          `Maximum ${property.max_guests} guests allowed for this property`
+          "Property is not available for the selected dates"
         );
       }
 
-      // Check availability
+      // Check for conflicting bookings
       const conflictingBookings = await Booking.find({
         property_id,
         booking_status: { $in: ["confirmed", "pending"] },
@@ -119,6 +122,13 @@ const bookingController = {
       if (conflictingBookings.length > 0) {
         throw new BadRequestError(
           "Property is not available for the selected dates"
+        );
+      }
+
+      // Validate guest count
+      if (guest_count > property.max_guests) {
+        throw new BadRequestError(
+          `Maximum ${property.max_guests} guests allowed for this property`
         );
       }
 
@@ -156,8 +166,8 @@ const bookingController = {
       // // Send email with PDF receipt
       // await sendEmail({
       //   to: payment.customer.email,
-      //   subject: "Booking Confirmation - Shortlet360",
-      //   text: `Dear ${payment.customer.name},\n\nThank you for your booking. Your booking has been confirmed. Please find the attached receipt for your records.\n\nBest regards,\nShortlet360 Team`,
+      //   subject: "Booking Confirmation - Aplet360",
+      //   text: `Dear ${payment.customer.name},\n\nThank you for your booking. Your booking has been confirmed. Please find the attached receipt for your records.\n\nBest regards,\naplet360 Team`,
       //   attachments: [
       //     {
       //       filename: `booking_receipt_${booking._id}.pdf`,

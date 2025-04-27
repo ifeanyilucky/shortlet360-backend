@@ -19,7 +19,7 @@ async function generatePDF(templateName, data) {
     const template = handlebars.compile(templateHtml);
 
     // Add logo path to data
-    data.logo = "https://shortlet360.com/logo.png"; // Update with your actual logo URL
+    data.logo = "https://aplet360.com/logo.png"; // Update with your actual logo URL
 
     // Render the template with data
     const html = template(data);

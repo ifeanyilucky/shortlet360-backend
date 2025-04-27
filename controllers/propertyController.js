@@ -1,14 +1,90 @@
 const Property = require("../models/property");
 const Booking = require("../models/booking");
 const { BadRequestError, NotFoundError } = require("../errors");
+const { generateShortPropertyId } = require("../utils/utils");
 
 const propertyController = {
   // Create a new property
   createProperty: async (req, res) => {
+    const propertyData = req.body;
+
+    // Additional validation for rent properties
+    if (propertyData.property_category === "rent") {
+      if (!propertyData.pricing.rent_per_year.is_active) {
+        throw new BadRequestError(
+          "Yearly pricing must be active for rental properties"
+        );
+      }
+
+      // Validate annual rent
+      if (!propertyData.pricing.rent_per_year.annual_rent) {
+        throw new BadRequestError(
+          "Annual rent is required for rental properties"
+        );
+      }
+
+      // Validate active fees
+      const fees = [
+        {
+          name: "agency fee",
+          value: propertyData.pricing.rent_per_year.agency_fee,
+          isActive: propertyData.pricing.rent_per_year.is_agency_fee_active,
+        },
+        {
+          name: "commission fee",
+          value: propertyData.pricing.rent_per_year.commission_fee,
+          isActive: propertyData.pricing.rent_per_year.is_commission_fee_active,
+        },
+        {
+          name: "caution fee",
+          value: propertyData.pricing.rent_per_year.caution_fee,
+          isActive: propertyData.pricing.rent_per_year.is_caution_fee_active,
+        },
+        {
+          name: "legal fee",
+          value: propertyData.pricing.rent_per_year.legal_fee,
+          isActive: propertyData.pricing.rent_per_year.is_legal_fee_active,
+        },
+      ];
+
+      fees.forEach(({ name, value, isActive }) => {
+        if (isActive && !value) {
+          throw new BadRequestError(
+            `${
+              name.charAt(0).toUpperCase() + name.slice(1)
+            } is required when active`
+          );
+        }
+      });
+    } else {
+      // Validation for shortlet properties
+      const { per_day, per_week, per_month } = propertyData.pricing;
+      if (!per_day.is_active && !per_week.is_active && !per_month.is_active) {
+        throw new BadRequestError(
+          "Shortlet properties must have either daily, weekly or monthly pricing active"
+        );
+      }
+
+      // Validate active pricing has values
+      if (per_day.is_active && !per_day.base_price) {
+        throw new BadRequestError("Daily base price is required when active");
+      }
+      if (per_week.is_active && !per_week.base_price) {
+        throw new BadRequestError("Weekly base price is required when active");
+      }
+      if (per_month.is_active && !per_month.base_price) {
+        throw new BadRequestError("Monthly base price is required when active");
+      }
+    }
+
+    // Generate short ID and create property
+    const short_id = await generateShortPropertyId();
     const property = new Property({
-      ...req.body,
+      ...propertyData,
       owner: req.user._id,
+      short_id,
     });
+
     await property.save();
     res.status(201).json({ success: true, data: property });
   },
@@ -19,6 +95,7 @@ const propertyController = {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
       const skip = (page - 1) * limit;
+      console.log("req.query", req.query);
 
       // Build filter object
       let filter = {};
@@ -28,11 +105,14 @@ const propertyController = {
         filter.owner = req.query.owner;
       }
 
-      // Text search on property name and description
+      // Text search on property name, description, and location (city and state)
       if (req.query.search) {
         filter.$or = [
           { property_name: { $regex: req.query.search, $options: "i" } },
           { property_description: { $regex: req.query.search, $options: "i" } },
+          { "location.city": { $regex: req.query.search, $options: "i" } },
+          { "location.state": { $regex: req.query.search, $options: "i" } },
+          { "location.street_address": { $regex: req.query.search, $options: "i" } },
         ];
       }
 
@@ -47,6 +127,11 @@ const propertyController = {
           filter["pricing.per_day.base_price"].$lte = parseInt(
             req.query.maxPrice
           );
+      }
+
+      // Property category filter
+      if (req.query.category) {
+        filter.property_category = req.query.category.toLowerCase();
       }
 
       // Property type filter
@@ -86,6 +171,7 @@ const propertyController = {
         filter.is_active = req.query.isActive === "true";
       }
 
+      console.log("filter", filter);
       // Get total count for pagination
       const total = await Property.countDocuments(filter);
 
@@ -95,6 +181,8 @@ const propertyController = {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
+
+      console.log("properties", properties);
 
       res.status(200).json({
         success: true,
@@ -190,6 +278,15 @@ const propertyController = {
       throw new NotFoundError("Property not found");
     }
 
+    // Check if dates overlap with property's unavailable dates
+    const isUnavailable = property.unavailable_dates.some((date) => {
+      return (
+        checkInDate <= new Date(date.end_date) &&
+        checkOutDate >= new Date(date.start_date)
+      );
+    });
+
+    // Check for conflicting bookings
     const conflictingBookings = await Booking.find({
       property_id: propertyId,
       booking_status: { $in: ["confirmed", "pending"] },
@@ -201,11 +298,16 @@ const propertyController = {
       ],
     });
 
-    const isAvailable = conflictingBookings.length === 0;
+    const isAvailable = !isUnavailable && conflictingBookings.length === 0;
+
     res.status(200).json({
       success: true,
       available: isAvailable,
-      conflicting_bookings: conflictingBookings.length,
+      unavailable_reason: isUnavailable
+        ? "Blocked by owner"
+        : conflictingBookings.length > 0
+        ? "Already booked"
+        : null,
     });
   },
 
@@ -270,6 +372,88 @@ const propertyController = {
         error: error.message,
       });
     }
+  },
+
+  // Update property unavailable dates
+  updateUnavailableDates: async (req, res) => {
+    const { unavailable_dates } = req.body;
+    const propertyId = req.params.id;
+
+    // Validate dates
+    if (!Array.isArray(unavailable_dates)) {
+      throw new BadRequestError("Unavailable dates must be an array");
+    }
+
+    // Validate each date range
+    unavailable_dates.forEach(({ start_date, end_date, reason }) => {
+      if (!start_date || !end_date) {
+        throw new BadRequestError(
+          "Each date range must have start and end dates"
+        );
+      }
+
+      const startDate = new Date(start_date);
+      const endDate = new Date(end_date);
+
+      if (startDate >= endDate) {
+        throw new BadRequestError("Start date must be before end date");
+      }
+    });
+
+    // Find property and verify ownership
+    const property = await Property.findOne({
+      _id: propertyId,
+      owner: req.user._id,
+    });
+
+    if (!property) {
+      throw new NotFoundError(
+        "Property not found or you are not authorized to update it"
+      );
+    }
+
+    // Update unavailable dates
+    property.unavailable_dates = unavailable_dates;
+    await property.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Unavailable dates updated successfully",
+      data: property,
+    });
+  },
+
+  // Get property availability
+  getPropertyAvailability: async (req, res) => {
+    const propertyId = req.params.id;
+
+    const property = await Property.findById(propertyId);
+    if (!property) {
+      throw new NotFoundError("Property not found");
+    }
+
+    // Get all confirmed or pending bookings
+    const bookings = await Booking.find({
+      property_id: propertyId,
+      booking_status: { $in: ["confirmed", "pending"] },
+    }).select("check_in_date check_out_date");
+
+    // Combine property's unavailable dates with booking dates
+    const unavailable_dates = [
+      ...property.unavailable_dates,
+      ...bookings.map((booking) => ({
+        start_date: booking.check_in_date,
+        end_date: booking.check_out_date,
+        reason: "Booking",
+      })),
+    ];
+
+    res.status(200).json({
+      success: true,
+      data: {
+        unavailable_dates,
+      },
+    });
   },
 };
 

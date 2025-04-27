@@ -25,7 +25,7 @@ router.post("/single", upload.single("image"), async (req, res) => {
     };base64,${req.file.buffer.toString("base64")}`;
 
     // Upload to cloudinary
-    const uploadedUrl = await uploads(fileStr, "shortlet360");
+    const uploadedUrl = await uploads(fileStr, "aplet360");
 
     res.status(200).json({
       success: true,
@@ -68,7 +68,7 @@ router.post("/multiple", upload.array("images", 10), async (req, res) => {
         )}`;
         console.log("Attempting to upload file of size:", file.size);
 
-        const uploadedUrl = await uploads(fileStr, "shortlet360");
+        const uploadedUrl = await uploads(fileStr, "aplet360");
         return {
           url: uploadedUrl.url,
           public_id: uploadedUrl.public_id,

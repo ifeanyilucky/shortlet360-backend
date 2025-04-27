@@ -28,6 +28,17 @@ const userSchema = new mongoose.Schema(
         default: "pending",
       },
     },
+    favorites: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Property",
+      },
+    ],
+    short_id: {
+      type: String,
+      unique: true,
+      required: true,
+    },
   },
   { timestamps: true }
 );

@@ -18,7 +18,7 @@ dotenv.config();
 
 // Move cors configuration before rate limiters
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
+  origin: '*', // Allow requests from any origin
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true,
   optionsSuccessStatus: 200,

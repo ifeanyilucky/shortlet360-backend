@@ -171,6 +171,11 @@ const propertyController = {
         filter.is_active = req.query.isActive === "true";
       }
 
+      // Short ID (Property ID) filter
+      if (req.query.short_id) {
+        filter.short_id = req.query.short_id;
+      }
+
       console.log("filter", filter);
       // Get total count for pagination
       const total = await Property.countDocuments(filter);
@@ -222,19 +227,54 @@ const propertyController = {
 
   // Update property
   updateProperty: async (req, res) => {
-    const property = await Property.findOneAndUpdate(
-      { _id: req.params.id, owner: req.user._id },
-      req.body,
-      { new: true, runValidators: true }
-    );
+    try {
+      // First find the property to check ownership
+      const existingProperty = await Property.findById(req.params.id);
 
-    if (!property) {
-      throw new NotFoundError(
-        "Property not found or you are not authorized to update it"
-      );
+      if (!existingProperty) {
+        throw new NotFoundError("Property not found");
+      }
+
+      // Check if the user is the owner of the property
+      if (existingProperty.owner.toString() !== req.user._id.toString()) {
+        throw new NotFoundError("You are not authorized to update this property");
+      }
+
+      // Fix property_images structure if needed
+      if (req.body.property_images && Array.isArray(req.body.property_images)) {
+        req.body.property_images = req.body.property_images.map(img => {
+          // Check if url is an object instead of a string
+          if (img.url && typeof img.url === 'object' && img.url.url) {
+            return {
+              url: img.url.url,
+              public_id: img.url.public_id || img.public_id || '',
+              asset_id: img.url.asset_id || img.asset_id || '',
+              _id: img._id // Keep the _id if it exists
+            };
+          }
+          return img;
+        });
+      }
+
+      // Update the property with the new data
+      Object.assign(existingProperty, req.body);
+
+      // Save the property to trigger the validation hooks
+      await existingProperty.save();
+
+      res.status(200).json({ success: true, data: existingProperty });
+    } catch (error) {
+      // If it's a validation error from Mongoose, convert it to a BadRequestError
+      if (error.name === 'ValidationError') {
+        const message = Object.values(error.errors).map(val => val.message).join(', ');
+        throw new BadRequestError(message);
+      } else if (error.name === 'CastError') {
+        throw new BadRequestError(`Invalid data format: ${error.message}`);
+      }
+
+      // Re-throw other errors
+      throw error;
     }
-
-    res.status(200).json({ success: true, data: property });
   },
 
   // Delete property

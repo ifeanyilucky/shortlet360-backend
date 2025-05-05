@@ -11,6 +11,7 @@ const {
   getProfile,
   updateProfile,
   verifyEmail,
+  completeRegistrationPayment,
 } = require("../controllers/auth");
 
 router.post("/register", register);
@@ -21,5 +22,6 @@ router.patch("/change-password", authenticateUser, changePassword);
 router.get("/profile", authenticateUser, getProfile);
 router.patch("/profile", authenticateUser, updateProfile);
 router.get("/verify-email/:token", verifyEmail);
+router.post("/complete-registration-payment", authenticateUser, completeRegistrationPayment);
 
 module.exports = router;

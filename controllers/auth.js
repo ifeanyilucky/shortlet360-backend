@@ -9,7 +9,7 @@ const {
 const sendEmail = require("../utils/sendEmails");
 const path = require("path");
 const ejs = require("ejs");
-const { generateShortPropertyId } = require("../utils/utils");
+const { generateShortUserId } = require("../utils/utils");
 
 const register = async (req, res) => {
   // Check if user already exists
@@ -19,12 +19,23 @@ const register = async (req, res) => {
     throw new BadRequestError("Another user with this email already exists.");
   }
 
-  const short_id = await generateShortPropertyId();
+  const short_id = await generateShortUserId(role || "user");
 
-  const result = await User.create({ ...req.body, short_id  });
+  // Create user with inactive status and pending payment
+  const result = await User.create({
+    ...req.body,
+    short_id,
+    is_active: false,
+    registration_payment_status: "pending"
+  });
 
   const token = result.createJWT();
-  res.status(StatusCodes.CREATED).json({ user: result, token, role });
+  res.status(StatusCodes.CREATED).json({
+    user: result,
+    token,
+    role,
+    requiresPayment: true
+  });
 };
 
 const login = async (req, res) => {
@@ -44,6 +55,22 @@ const login = async (req, res) => {
 
   if (!isPasswordCorrect) {
     throw new UnauthenticatedError(`Sorry, that password isn't right`);
+  }
+
+  // Check if user has completed registration payment
+  if (user.registration_payment_status === "pending") {
+    const token = user.createJWT();
+    return res.status(StatusCodes.OK).json({
+      user,
+      token,
+      requiresPayment: true,
+      message: "Please complete your registration payment to activate your account"
+    });
+  }
+
+  // Check if user account is active
+  if (!user.is_active) {
+    throw new UnauthenticatedError("Your account is not active. Please contact support.");
   }
 
   const token = user.createJWT();
@@ -206,13 +233,46 @@ const verifyEmail = async (req, res) => {
     throw new BadRequestError("Invalid or expired verification token");
   }
 
-  user.isEmailVerified = true;
+  user.is_verified = true;
   user.emailVerificationToken = undefined;
   user.emailVerificationExpire = undefined;
   await user.save();
 
   res.status(StatusCodes.OK).json({
     message: "Email verified successfully",
+  });
+};
+
+const completeRegistrationPayment = async (req, res) => {
+  const { payment } = req.body;
+
+  if (!payment) {
+    throw new BadRequestError("Payment information is required");
+  }
+
+  // Find and update the user with payment information and activate account
+  // Using findByIdAndUpdate to avoid validation issues with required fields
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      registration_payment: payment,
+      registration_payment_status: "paid",
+      is_active: true
+    },
+    { new: true, runValidators: false }
+  );
+
+  if (!updatedUser) {
+    throw new NotFoundError("User not found");
+  }
+
+  // Generate new token with updated user info
+  const token = updatedUser.createJWT();
+
+  res.status(StatusCodes.OK).json({
+    message: "Registration payment completed successfully",
+    user: updatedUser,
+    token
   });
 };
 
@@ -225,4 +285,5 @@ module.exports = {
   getProfile,
   updateProfile,
   verifyEmail,
+  completeRegistrationPayment,
 };

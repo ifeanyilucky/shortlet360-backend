@@ -20,6 +20,16 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
     is_verified: { type: Boolean, default: false },
+    is_active: { type: Boolean, default: false },
+    registration_payment_status: {
+      type: String,
+      enum: ["pending", "paid"],
+      default: "pending",
+    },
+    registration_payment: {
+      type: Object,
+      default: null,
+    },
     host_details: {
       id_document: String,
       verification_status: {

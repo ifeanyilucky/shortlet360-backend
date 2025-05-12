@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const bookingController = require("../controllers/bookingController");
 const auth = require("../middlewares/authentication");
+const { verifyUserKyc, verifyMonthlyRentKyc } = require("../middlewares/kycVerification");
 
 // Get property availability (public route)
 router.get(
@@ -12,8 +13,11 @@ router.get(
 // Protected routes
 router.use(auth);
 
-// Create a new booking
-router.post("/", bookingController.createBooking);
+// Create a new booking - requires Tier 1 KYC for regular bookings
+router.post("/", verifyUserKyc, bookingController.createBooking);
+
+// Create a monthly rent booking - requires Tier 1, 2, and 3 KYC
+router.post("/monthly-rent", verifyMonthlyRentKyc, bookingController.createBooking);
 
 // Get filtered bookings
 router.get("/", bookingController.getFilteredBookings);

@@ -49,6 +49,82 @@ const userSchema = new mongoose.Schema(
       unique: true,
       required: true,
     },
+    // KYC Verification Fields
+    kyc: {
+      // Tier 1: Phone and Email Verification
+      tier1: {
+        status: {
+          type: String,
+          enum: ["pending", "verified", "rejected"],
+          default: "pending",
+        },
+        email_verified: { type: Boolean, default: false },
+        phone_verified: { type: Boolean, default: false },
+        completed_at: Date,
+      },
+      // Tier 2: Address and Identity Verification
+      tier2: {
+        status: {
+          type: String,
+          enum: ["pending", "verified", "rejected", "not_started"],
+          default: "not_started",
+        },
+        address: {
+          street: String,
+          city: String,
+          state: String,
+          postal_code: String,
+          country: String,
+          verification_status: {
+            type: String,
+            enum: ["pending", "verified", "rejected", "not_submitted"],
+            default: "not_submitted",
+          },
+        },
+        identity: {
+          nin: String,
+          nin_verification_id: String, // ID from Prembly verification
+          verification_status: {
+            type: String,
+            enum: ["pending", "verified", "rejected", "not_submitted"],
+            default: "not_submitted",
+          },
+          verification_data: Object, // Store verification response
+        },
+        completed_at: Date,
+      },
+      // Tier 3: Work/Business and Bank Statement Verification (For monthly rent users)
+      tier3: {
+        status: {
+          type: String,
+          enum: ["pending", "verified", "rejected", "not_started"],
+          default: "not_started",
+        },
+        employment: {
+          employer_name: String,
+          position: String,
+          employment_status: String, // full-time, part-time, self-employed, etc.
+          work_address: String,
+          work_phone: String,
+          verification_status: {
+            type: String,
+            enum: ["pending", "verified", "rejected", "not_submitted"],
+            default: "not_submitted",
+          },
+        },
+        bank_statement: {
+          bank_name: String,
+          account_number: String, // Last 4 digits only for security
+          statement_document: Object, // Store document info
+          verification_status: {
+            type: String,
+            enum: ["pending", "verified", "rejected", "not_submitted"],
+            default: "not_submitted",
+          },
+        },
+        completed_at: Date,
+      },
+    },
   },
   { timestamps: true }
 );

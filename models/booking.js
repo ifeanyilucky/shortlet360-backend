@@ -29,6 +29,19 @@ const bookingSchema = new mongoose.Schema(
     payment: Object,
     estimated_arrival: { type: String, required: true }, // Store time in 24-hour format (HH:mm)
     special_requests: String,
+    // Monthly rent fields
+    is_monthly_rent: { type: Boolean, default: false },
+    monthly_rent_option: {
+      type: String,
+      enum: ["option1", "option2", null],
+      default: null,
+    },
+    monthly_rent_details: {
+      annual_rent: Number,
+      monthly_base: Number,
+      interest_rate: Number,
+      interest_amount: Number,
+    },
   },
   { timestamps: true }
 );

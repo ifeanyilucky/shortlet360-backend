@@ -13,6 +13,7 @@ const propertyRoutes = require("./routes/propertyRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
+const kycRoutes = require("./routes/kycRoutes");
 
 dotenv.config();
 
@@ -67,6 +68,7 @@ app.use("/api/v1/properties", propertyRoutes);
 app.use("/api/v1/bookings", bookingRoutes);
 app.use("/api/v1/uploads", uploadRoutes);
 app.use("/api/v1/favorites", favoriteRoutes);
+app.use("/api/v1/kyc", kycRoutes);
 
 // Error handling middleware
 app.use(notFoundMiddleware);

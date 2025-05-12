@@ -1,5 +1,6 @@
 const Booking = require("../models/booking");
 const Property = require("../models/property");
+const User = require("../models/user");
 const { BadRequestError, NotFoundError } = require("../errors");
 const { sendEmail } = require("../utils/sendEmails");
 const generatePDF = require("../utils/pdfGenerator");
@@ -66,6 +67,8 @@ const bookingController = {
         guest_count,
         payment,
         estimated_arrival,
+        is_monthly_rent,
+        monthly_rent_option,
       } = req.body;
 
       if (
@@ -82,6 +85,20 @@ const bookingController = {
 
       if (!payment) {
         throw new BadRequestError("Payment information is required");
+      }
+
+      // Check if this is a monthly rent booking
+      if (is_monthly_rent) {
+        // Verify user has completed Tier 3 KYC for monthly rent
+        const user = await User.findById(req.user._id);
+        if (!user.kyc || !user.kyc.tier3 || user.kyc.tier3.status !== "verified") {
+          throw new BadRequestError("You must complete Tier 3 KYC verification to book monthly rentals");
+        }
+
+        // Validate monthly rent option
+        if (!monthly_rent_option || !["option1", "option2"].includes(monthly_rent_option)) {
+          throw new BadRequestError("Please select a valid monthly rent payment option");
+        }
       }
 
       const checkInDate = new Date(check_in_date);
@@ -133,13 +150,33 @@ const bookingController = {
       }
 
       // Calculate total price
-      const nights = Math.ceil(
-        (checkOutDate - checkInDate) / (1000 * 60 * 60 * 24)
-      );
-      const total_price = property.pricing.per_day.base_price * nights;
+      let total_price;
+
+      if (is_monthly_rent) {
+        // For monthly rent, use the yearly rent with interest
+        const annual_rent = property.pricing.rent_per_year.annual_rent;
+        const monthly_base = annual_rent / 12;
+
+        // Calculate based on selected option
+        if (monthly_rent_option === "option1") {
+          // Option 1: 1.5% monthly interest (18% annually)
+          const monthly_interest = annual_rent * 0.015;
+          total_price = monthly_base + monthly_interest;
+        } else {
+          // Option 2: 2% monthly interest (24% annually)
+          const monthly_interest = annual_rent * 0.02;
+          total_price = monthly_base + monthly_interest;
+        }
+      } else {
+        // For regular bookings, calculate based on nights
+        const nights = Math.ceil(
+          (checkOutDate - checkInDate) / (1000 * 60 * 60 * 24)
+        );
+        total_price = property.pricing.per_day.base_price * nights;
+      }
 
       // Create booking with payment information
-      const booking = new Booking({
+      const bookingData = {
         property_id,
         guest: req.user._id,
         check_in_date: checkInDate,
@@ -150,7 +187,26 @@ const bookingController = {
         payment: payment,
         payment_status: "paid",
         booking_status: "confirmed",
-      });
+      };
+
+      // Add monthly rent details if applicable
+      if (is_monthly_rent) {
+        const annual_rent = property.pricing.rent_per_year.annual_rent;
+        const monthly_base = annual_rent / 12;
+        const interest_rate = monthly_rent_option === "option1" ? 0.015 : 0.02;
+        const interest_amount = annual_rent * interest_rate;
+
+        bookingData.is_monthly_rent = true;
+        bookingData.monthly_rent_option = monthly_rent_option;
+        bookingData.monthly_rent_details = {
+          annual_rent,
+          monthly_base,
+          interest_rate,
+          interest_amount
+        };
+      }
+
+      const booking = new Booking(bookingData);
 
       await booking.save();
 

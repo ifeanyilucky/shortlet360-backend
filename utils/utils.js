@@ -29,7 +29,14 @@ const generateShortUserId = async (role) => {
   let isUnique = false;
 
   // Prefix based on user role
-  const prefix = role === "owner" ? "OW-" : "US-";
+  let prefix;
+  if (role === "owner") {
+    prefix = "OW-";
+  } else if (role === "admin") {
+    prefix = "AD-";
+  } else {
+    prefix = "US-";
+  }
 
   // Keep trying until we get a unique ID
   while (!isUnique) {
@@ -46,5 +53,5 @@ const generateShortUserId = async (role) => {
 
 module.exports = {
   generateShortPropertyId,
-  generateShortUserId
+  generateShortUserId,
 };

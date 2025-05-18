@@ -1,0 +1,29 @@
+<%- include('./layout/emailLayout', {
+  title: 'Home Service Request',
+  content: `
+    <div class="email-content">
+      <h2>New Home Service Request</h2>
+
+      <div class="info-section">
+        <p><strong>Date:</strong> ${date}</p>
+        <p><strong>Service Type:</strong> ${service}</p>
+      </div>
+
+      <div class="info-section">
+        <h3>Customer Information</h3>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Phone:</strong> ${phone}</p>
+      </div>
+
+      <div class="info-section">
+        <h3>Service Description</h3>
+        <p>${description}</p>
+      </div>
+
+      <div class="action-section">
+        <p>Please respond to this request within 24 hours.</p>
+      </div>
+    </div>
+  `
+}) %>

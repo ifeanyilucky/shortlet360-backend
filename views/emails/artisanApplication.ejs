@@ -1,0 +1,37 @@
+<%- include('./layout/emailLayout', {
+  title: 'Artisan Application',
+  content: `
+    <div class="email-content">
+      <h2>New Artisan Application</h2>
+
+      <div class="info-section">
+        <p><strong>Date:</strong> ${date}</p>
+        <p><strong>Skill Category:</strong> ${skillCategory}</p>
+        <p><strong>Experience:</strong> ${experience}</p>
+      </div>
+
+      <div class="info-section">
+        <h3>Applicant Information</h3>
+        <p><strong>Name:</strong> ${fullName}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Phone:</strong> ${phone}</p>
+        <p><strong>Address:</strong> ${address}</p>
+      </div>
+
+      <div class="info-section">
+        <h3>ID Information</h3>
+        <p><strong>ID Type:</strong> ${idType}</p>
+        <p><strong>ID Number:</strong> ${idNumber}</p>
+      </div>
+
+      <div class="info-section">
+        <h3>About</h3>
+        <p>${about}</p>
+      </div>
+
+      <div class="action-section">
+        <p>Please review this application and contact the applicant within 48 hours.</p>
+      </div>
+    </div>
+  `
+}) %>

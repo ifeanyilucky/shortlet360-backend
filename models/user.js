@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema(
     business_name: String,
     role: {
       type: String,
-      enum: ["user", "owner"],
+      enum: ["user", "owner", "admin"],
       default: "user",
     },
     is_verified: { type: Boolean, default: false },
@@ -49,6 +49,15 @@ const userSchema = new mongoose.Schema(
       unique: true,
       required: true,
     },
+    // Email verification fields
+    emailVerificationToken: String,
+    emailVerificationExpire: Date,
+    // Phone verification fields
+    phoneVerificationCode: String,
+    phoneVerificationExpire: Date,
+    // Password reset fields
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
     // KYC Verification Fields
     kyc: {
       // Tier 1: Phone and Email Verification

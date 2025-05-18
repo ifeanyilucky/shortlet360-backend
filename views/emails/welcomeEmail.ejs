@@ -1,0 +1,35 @@
+<%- include('./layout/emailLayout', {
+    title: 'Welcome to Aplet360!',
+    content: `
+        <p>Hello ${name},</p>
+
+        <p>Thank you for registering with Aplet360, Africa's premier apartment rental and shortlet solutions company. We're excited to have you join our community!</p>
+
+        <p>Your account has been created successfully with ID: <strong>${short_id}</strong>. To complete your registration and activate your account, please proceed with the registration payment.</p>
+
+        <div style="text-align: center;">
+            <a href="${paymentUrl}" class="button">Complete Registration</a>
+        </div>
+
+        <div class="benefits">
+            <h3>Why Choose Aplet360?</h3>
+            ${role === 'user' ? `
+            <ul>
+                <li>Rental assistance with flexible monthly payment options</li>
+                <li>Tenant protection and verified apartments</li>
+                <li>Access to premium home services</li>
+                <li>Seamless booking experience for shortlets</li>
+            </ul>
+            ` : role === 'owner' ? `
+            <ul>
+                <li>Comprehensive property management solutions</li>
+                <li>Verified tenant matching</li>
+                <li>Secure payment processing</li>
+                <li>Maximize your property's earning potential</li>
+            </ul>
+            ` : ''}
+        </div>
+
+        <p>If you have any questions or need assistance, please don't hesitate to contact our support team at <a href="mailto:support@aplet360.com">support@aplet360.com</a> or call us at 09038775464.</p>
+    `
+}) %>

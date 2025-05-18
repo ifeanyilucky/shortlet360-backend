@@ -1,8 +1,12 @@
 const User = require("../models/user");
 const { StatusCodes } = require("http-status-codes");
-const { BadRequestError, NotFoundError, UnauthenticatedError } = require("../errors");
-const prembly = require("../utils/prembly");
-const {sendEmail} = require("../utils/sendEmails");
+const {
+  BadRequestError,
+  NotFoundError,
+  UnauthenticatedError,
+} = require("../errors");
+const youverify = require("../utils/youverify");
+const { sendEmail } = require("../utils/sendEmails");
 const crypto = require("crypto");
 const path = require("path");
 const ejs = require("ejs");
@@ -12,27 +16,37 @@ const ejs = require("ejs");
  */
 const getKycStatus = async (req, res) => {
   const user = await User.findById(req.user._id).select("kyc role");
-  
+
   if (!user) {
     throw new NotFoundError("User not found");
   }
 
   // Determine which tiers are required based on role
   const requiredTiers = user.role === "owner" ? ["tier1", "tier2"] : ["tier1"];
-  
+
   // Calculate overall KYC status
   let overallStatus = "incomplete";
-  
-  if (requiredTiers.every(tier => user.kyc && user.kyc[tier] && user.kyc[tier].status === "verified")) {
+
+  if (
+    requiredTiers.every(
+      (tier) =>
+        user.kyc && user.kyc[tier] && user.kyc[tier].status === "verified"
+    )
+  ) {
     overallStatus = "complete";
-  } else if (requiredTiers.some(tier => user.kyc && user.kyc[tier] && user.kyc[tier].status === "pending")) {
+  } else if (
+    requiredTiers.some(
+      (tier) =>
+        user.kyc && user.kyc[tier] && user.kyc[tier].status === "pending"
+    )
+  ) {
     overallStatus = "pending";
   }
 
   res.status(StatusCodes.OK).json({
     kyc: user.kyc || {},
     requiredTiers,
-    overallStatus
+    overallStatus,
   });
 };
 
@@ -41,7 +55,7 @@ const getKycStatus = async (req, res) => {
  */
 const initiateTier1Verification = async (req, res) => {
   const user = await User.findById(req.user._id);
-  
+
   if (!user) {
     throw new NotFoundError("User not found");
   }
@@ -52,14 +66,14 @@ const initiateTier1Verification = async (req, res) => {
       tier1: {
         status: "pending",
         email_verified: false,
-        phone_verified: false
-      }
+        phone_verified: false,
+      },
     };
   } else if (!user.kyc.tier1) {
     user.kyc.tier1 = {
       status: "pending",
       email_verified: false,
-      phone_verified: false
+      phone_verified: false,
     };
   }
 
@@ -98,7 +112,7 @@ const initiateTier1Verification = async (req, res) => {
 
     res.status(StatusCodes.OK).json({
       message: "Verification email sent successfully",
-      kyc: user.kyc
+      kyc: user.kyc,
     });
   } catch (error) {
     user.emailVerificationToken = undefined;
@@ -109,61 +123,91 @@ const initiateTier1Verification = async (req, res) => {
 };
 
 /**
- * Verify phone number for Tier 1
+ * Initiate phone number verification for Tier 1
  */
-const verifyPhoneNumber = async (req, res) => {
+const initiatePhoneVerification = async (req, res) => {
   const { phone_number } = req.body;
-  
+
   if (!phone_number) {
     throw new BadRequestError("Phone number is required");
   }
 
   const user = await User.findById(req.user._id);
-  
+
   if (!user) {
     throw new NotFoundError("User not found");
   }
 
   try {
-    // Verify phone number with Prembly
-    const verificationResult = await prembly.verifyPhoneNumber(phone_number);
-    
     // Initialize KYC object if it doesn't exist
     if (!user.kyc) {
       user.kyc = {
         tier1: {
           status: "pending",
           email_verified: false,
-          phone_verified: false
-        }
+          phone_verified: false,
+        },
       };
     } else if (!user.kyc.tier1) {
       user.kyc.tier1 = {
         status: "pending",
         email_verified: false,
-        phone_verified: false
+        phone_verified: false,
       };
     }
 
-    // Update user's phone number and verification status
+    // Update user's phone number
     user.phone_number = phone_number;
-    user.kyc.tier1.phone_verified = true;
-    
-    // Check if Tier 1 is now complete
-    if (user.kyc.tier1.email_verified && user.kyc.tier1.phone_verified) {
-      user.kyc.tier1.status = "verified";
-      user.kyc.tier1.completed_at = new Date();
+
+    // Verify phone number using YouVerify
+    const verificationResponse = await youverify.verifyPhoneNumber(
+      phone_number
+    );
+
+    // Check if verification was successful
+    if (
+      verificationResponse.success &&
+      verificationResponse.data.status === "found"
+    ) {
+      // Phone number is verified directly
+      user.kyc.tier1.phone_verified = true;
+
+      // Check if Tier 1 is now complete
+      if (user.kyc.tier1.email_verified) {
+        user.kyc.tier1.status = "verified";
+        user.kyc.tier1.completed_at = new Date();
+      }
+
+      await user.save();
+
+      res.status(StatusCodes.OK).json({
+        message: "Phone number verified successfully",
+        kyc: user.kyc,
+      });
+    } else {
+      // If YouVerify verification fails, inform the user
+      throw new BadRequestError(
+        "Phone number verification failed. Please ensure you've entered a valid Nigerian phone number."
+      );
     }
-
-    await user.save();
-
-    res.status(StatusCodes.OK).json({
-      message: "Phone number verified successfully",
-      kyc: user.kyc
-    });
   } catch (error) {
-    throw new BadRequestError(error.message || "Phone verification failed");
+    throw new BadRequestError(
+      error.message || "Phone verification initiation failed"
+    );
   }
+};
+
+/**
+ * Verify phone number for Tier 1 (This method is kept for API compatibility)
+ *
+ * Note: This method is now deprecated as we use direct verification with YouVerify.
+ * It's kept for backward compatibility with existing API clients.
+ */
+const verifyPhoneNumber = async (_req, res) => {
+  res.status(StatusCodes.BAD_REQUEST).json({
+    message:
+      "This verification method is no longer supported. Please use initiatePhoneVerification instead.",
+  });
 };
 
 /**
@@ -192,14 +236,14 @@ const verifyEmail = async (req, res) => {
       tier1: {
         status: "pending",
         email_verified: false,
-        phone_verified: false
-      }
+        phone_verified: false,
+      },
     };
   } else if (!user.kyc.tier1) {
     user.kyc.tier1 = {
       status: "pending",
       email_verified: false,
-      phone_verified: false
+      phone_verified: false,
     };
   }
 
@@ -208,7 +252,7 @@ const verifyEmail = async (req, res) => {
   user.kyc.tier1.email_verified = true;
   user.emailVerificationToken = undefined;
   user.emailVerificationExpire = undefined;
-  
+
   // Check if Tier 1 is now complete
   if (user.kyc.tier1.phone_verified) {
     user.kyc.tier1.status = "verified";
@@ -219,7 +263,7 @@ const verifyEmail = async (req, res) => {
 
   res.status(StatusCodes.OK).json({
     message: "Email verified successfully",
-    kyc: user.kyc
+    kyc: user.kyc,
   });
 };
 
@@ -228,17 +272,17 @@ const verifyEmail = async (req, res) => {
  */
 const submitTier2Verification = async (req, res) => {
   const { address, identity } = req.body;
-  
+
   if (!address) {
     throw new BadRequestError("Address information is required");
   }
-  
+
   if (!identity || !identity.nin) {
     throw new BadRequestError("NIN is required");
   }
 
   const user = await User.findById(req.user._id);
-  
+
   if (!user) {
     throw new NotFoundError("User not found");
   }
@@ -249,8 +293,8 @@ const submitTier2Verification = async (req, res) => {
   }
 
   try {
-    // Verify NIN with Prembly
-    const ninVerificationResult = await prembly.verifyNIN(
+    // Verify NIN with YouVerify
+    const ninVerificationResult = await youverify.verifyNIN(
       identity.nin,
       user.first_name,
       user.last_name
@@ -261,11 +305,11 @@ const submitTier2Verification = async (req, res) => {
       user.kyc.tier2 = {
         status: "pending",
         address: {
-          verification_status: "not_submitted"
+          verification_status: "not_submitted",
         },
         identity: {
-          verification_status: "not_submitted"
-        }
+          verification_status: "not_submitted",
+        },
       };
     }
 
@@ -276,20 +320,24 @@ const submitTier2Verification = async (req, res) => {
       state: address.state,
       postal_code: address.postal_code,
       country: address.country || "Nigeria",
-      verification_status: "pending"
+      verification_status: "pending",
     };
 
     // Update identity information
     user.kyc.tier2.identity = {
       nin: identity.nin,
-      verification_status: ninVerificationResult.status ? "verified" : "rejected",
+      verification_status:
+        ninVerificationResult.success &&
+        ninVerificationResult.data.status === "found"
+          ? "verified"
+          : "rejected",
       verification_data: ninVerificationResult,
-      nin_verification_id: ninVerificationResult.data?.verification_id || null
+      nin_verification_id: ninVerificationResult.data?.id || null,
     };
 
     // Update overall Tier 2 status
     user.kyc.tier2.status = "pending";
-    
+
     // If both address and identity are verified, mark Tier 2 as verified
     if (
       user.kyc.tier2.address.verification_status === "verified" &&
@@ -303,7 +351,7 @@ const submitTier2Verification = async (req, res) => {
 
     res.status(StatusCodes.OK).json({
       message: "Tier 2 verification submitted successfully",
-      kyc: user.kyc
+      kyc: user.kyc,
     });
   } catch (error) {
     throw new BadRequestError(error.message || "Tier 2 verification failed");
@@ -315,17 +363,17 @@ const submitTier2Verification = async (req, res) => {
  */
 const submitTier3Verification = async (req, res) => {
   const { employment, bank_statement } = req.body;
-  
+
   if (!employment) {
     throw new BadRequestError("Employment information is required");
   }
-  
+
   if (!bank_statement) {
     throw new BadRequestError("Bank statement information is required");
   }
 
   const user = await User.findById(req.user._id);
-  
+
   if (!user) {
     throw new NotFoundError("User not found");
   }
@@ -341,11 +389,11 @@ const submitTier3Verification = async (req, res) => {
       user.kyc.tier3 = {
         status: "pending",
         employment: {
-          verification_status: "not_submitted"
+          verification_status: "not_submitted",
         },
         bank_statement: {
-          verification_status: "not_submitted"
-        }
+          verification_status: "not_submitted",
+        },
       };
     }
 
@@ -356,7 +404,7 @@ const submitTier3Verification = async (req, res) => {
       employment_status: employment.employment_status,
       work_address: employment.work_address,
       work_phone: employment.work_phone,
-      verification_status: "pending"
+      verification_status: "pending",
     };
 
     // Update bank statement information
@@ -364,7 +412,7 @@ const submitTier3Verification = async (req, res) => {
       bank_name: bank_statement.bank_name,
       account_number: bank_statement.account_number.slice(-4), // Store only last 4 digits
       statement_document: bank_statement.document,
-      verification_status: "pending"
+      verification_status: "pending",
     };
 
     // Update overall Tier 3 status
@@ -374,7 +422,7 @@ const submitTier3Verification = async (req, res) => {
 
     res.status(StatusCodes.OK).json({
       message: "Tier 3 verification submitted successfully",
-      kyc: user.kyc
+      kyc: user.kyc,
     });
   } catch (error) {
     throw new BadRequestError(error.message || "Tier 3 verification failed");
@@ -384,8 +432,9 @@ const submitTier3Verification = async (req, res) => {
 module.exports = {
   getKycStatus,
   initiateTier1Verification,
+  initiatePhoneVerification,
   verifyPhoneNumber,
   verifyEmail,
   submitTier2Verification,
-  submitTier3Verification
+  submitTier3Verification,
 };

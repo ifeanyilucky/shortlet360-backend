@@ -6,7 +6,7 @@ const {
   UnauthenticatedError,
   NotFoundError,
 } = require("../errors");
-const sendEmail = require("../utils/sendEmails");
+const { sendEmail, sendWelcomeEmail } = require("../utils/sendEmails");
 const path = require("path");
 const ejs = require("ejs");
 const { generateShortUserId } = require("../utils/utils");
@@ -26,15 +26,25 @@ const register = async (req, res) => {
     ...req.body,
     short_id,
     is_active: false,
-    registration_payment_status: "pending"
+    registration_payment_status: "pending",
   });
+
+  // Send welcome email to the user
+  try {
+    await sendWelcomeEmail(result);
+    console.log(`Welcome email sent to ${result.email}`);
+  } catch (error) {
+    console.error(`Failed to send welcome email to ${result.email}:`, error);
+    // We don't want to fail the registration if email sending fails
+    // Just log the error and continue
+  }
 
   const token = result.createJWT();
   res.status(StatusCodes.CREATED).json({
     user: result,
     token,
     role,
-    requiresPayment: true
+    requiresPayment: true,
   });
 };
 
@@ -64,13 +74,16 @@ const login = async (req, res) => {
       user,
       token,
       requiresPayment: true,
-      message: "Please complete your registration payment to activate your account"
+      message:
+        "Please complete your registration payment to activate your account",
     });
   }
 
   // Check if user account is active
   if (!user.is_active) {
-    throw new UnauthenticatedError("Your account is not active. Please contact support.");
+    throw new UnauthenticatedError(
+      "Your account is not active. Please contact support."
+    );
   }
 
   const token = user.createJWT();
@@ -257,7 +270,7 @@ const completeRegistrationPayment = async (req, res) => {
     {
       registration_payment: payment,
       registration_payment_status: "paid",
-      is_active: true
+      is_active: true,
     },
     { new: true, runValidators: false }
   );
@@ -272,7 +285,7 @@ const completeRegistrationPayment = async (req, res) => {
   res.status(StatusCodes.OK).json({
     message: "Registration payment completed successfully",
     user: updatedUser,
-    token
+    token,
   });
 };
 

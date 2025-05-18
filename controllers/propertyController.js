@@ -1,7 +1,13 @@
 const Property = require("../models/property");
 const Booking = require("../models/booking");
-const { BadRequestError, NotFoundError } = require("../errors");
+const User = require("../models/user");
+const {
+  BadRequestError,
+  NotFoundError,
+  UnauthorizedError,
+} = require("../errors");
 const { generateShortPropertyId } = require("../utils/utils");
+const { sendNewPropertyNotification } = require("../utils/sendEmails");
 
 const propertyController = {
   // Create a new property
@@ -83,9 +89,22 @@ const propertyController = {
       ...propertyData,
       owner: req.user._id,
       short_id,
+      publication_status: "pending", // Set initial status to pending
     });
 
     await property.save();
+
+    try {
+      // Get owner details for the email notification
+      const owner = await User.findById(req.user._id);
+
+      // Send notification email to support@aplet360.com
+      await sendNewPropertyNotification(property, owner);
+    } catch (error) {
+      console.error("Error sending property notification email:", error);
+      // Don't throw error here, as we still want to return the property data
+    }
+
     res.status(201).json({ success: true, data: property });
   },
 
@@ -112,7 +131,12 @@ const propertyController = {
           { property_description: { $regex: req.query.search, $options: "i" } },
           { "location.city": { $regex: req.query.search, $options: "i" } },
           { "location.state": { $regex: req.query.search, $options: "i" } },
-          { "location.street_address": { $regex: req.query.search, $options: "i" } },
+          {
+            "location.street_address": {
+              $regex: req.query.search,
+              $options: "i",
+            },
+          },
         ];
       }
 
@@ -169,6 +193,24 @@ const propertyController = {
       // Active status filter
       if (req.query.isActive !== undefined) {
         filter.is_active = req.query.isActive === "true";
+      }
+
+      // Publication status filter - for admin users
+      if (req.query.publication_status) {
+        filter.publication_status = req.query.publication_status;
+      } else if (!req.user || req.user.role !== "admin") {
+        // For non-admin users or public pages, only show published properties
+        filter.publication_status = "published";
+      }
+
+      // If owner is viewing their own properties, show all regardless of publication status
+      if (
+        req.user &&
+        req.query.owner &&
+        req.query.owner === req.user._id.toString()
+      ) {
+        // Remove the publication_status filter for owners viewing their own properties
+        delete filter.publication_status;
       }
 
       // Short ID (Property ID) filter
@@ -237,19 +279,21 @@ const propertyController = {
 
       // Check if the user is the owner of the property
       if (existingProperty.owner.toString() !== req.user._id.toString()) {
-        throw new NotFoundError("You are not authorized to update this property");
+        throw new NotFoundError(
+          "You are not authorized to update this property"
+        );
       }
 
       // Fix property_images structure if needed
       if (req.body.property_images && Array.isArray(req.body.property_images)) {
-        req.body.property_images = req.body.property_images.map(img => {
+        req.body.property_images = req.body.property_images.map((img) => {
           // Check if url is an object instead of a string
-          if (img.url && typeof img.url === 'object' && img.url.url) {
+          if (img.url && typeof img.url === "object" && img.url.url) {
             return {
               url: img.url.url,
-              public_id: img.url.public_id || img.public_id || '',
-              asset_id: img.url.asset_id || img.asset_id || '',
-              _id: img._id // Keep the _id if it exists
+              public_id: img.url.public_id || img.public_id || "",
+              asset_id: img.url.asset_id || img.asset_id || "",
+              _id: img._id, // Keep the _id if it exists
             };
           }
           return img;
@@ -265,10 +309,12 @@ const propertyController = {
       res.status(200).json({ success: true, data: existingProperty });
     } catch (error) {
       // If it's a validation error from Mongoose, convert it to a BadRequestError
-      if (error.name === 'ValidationError') {
-        const message = Object.values(error.errors).map(val => val.message).join(', ');
+      if (error.name === "ValidationError") {
+        const message = Object.values(error.errors)
+          .map((val) => val.message)
+          .join(", ");
         throw new BadRequestError(message);
-      } else if (error.name === 'CastError') {
+      } else if (error.name === "CastError") {
         throw new BadRequestError(`Invalid data format: ${error.message}`);
       }
 
@@ -459,6 +505,59 @@ const propertyController = {
     res.status(200).json({
       success: true,
       message: "Unavailable dates updated successfully",
+      data: property,
+    });
+  },
+
+  // Update property publication status (admin only)
+  updatePublicationStatus: async (req, res) => {
+    const { id } = req.params;
+    const { publication_status } = req.body;
+
+    // Validate input
+    if (
+      !publication_status ||
+      !["pending", "published"].includes(publication_status)
+    ) {
+      throw new BadRequestError(
+        "Invalid publication status. Must be 'pending' or 'published'"
+      );
+    }
+
+    // Check if user is admin
+    if (req.user.role !== "admin") {
+      throw new UnauthorizedError(
+        "Only administrators can update publication status"
+      );
+    }
+
+    // Find the property
+    const property = await Property.findById(id);
+    if (!property) {
+      throw new NotFoundError("Property not found");
+    }
+
+    // Update the publication status
+    property.publication_status = publication_status;
+    await property.save();
+
+    // If property is being published, notify the owner
+    if (publication_status === "published") {
+      try {
+        const owner = await User.findById(property.owner);
+        // Here you could add code to send an email to the owner
+        // notifying them that their property has been published
+      } catch (error) {
+        console.error(
+          "Error notifying owner of publication status change:",
+          error
+        );
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Property publication status updated to ${publication_status}`,
       data: property,
     });
   },

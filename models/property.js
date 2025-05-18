@@ -65,6 +65,11 @@ const propertySchema = new mongoose.Schema(
       required: true,
     },
     is_active: { type: Boolean, default: true },
+    publication_status: {
+      type: String,
+      enum: ["pending", "published"],
+      default: "pending",
+    },
     unavailable_dates: [
       {
         start_date: Date,

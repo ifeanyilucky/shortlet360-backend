@@ -19,4 +19,11 @@ router.put(
   propertyController.updateUnavailableDates
 );
 
+// Admin-only route to update publication status
+router.patch(
+  "/:id/publication-status",
+  auth,
+  propertyController.updatePublicationStatus
+);
+
 module.exports = router;

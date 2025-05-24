@@ -11,4 +11,7 @@ router.post("/become-artisan", formController.submitBecomeArtisanForm);
 // Contact form submission
 router.post("/contact", formController.submitContactForm);
 
+// Dispute resolution form submission
+router.post("/dispute-resolution", formController.submitDisputeResolutionForm);
+
 module.exports = router;

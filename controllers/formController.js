@@ -10,13 +10,27 @@ const path = require("path");
  */
 const submitHomeServiceForm = async (req, res) => {
   try {
-    const { name, email, phone, service, description } = req.body;
+    const { name, email, phone, service, description, address } = req.body;
 
     // Validate required fields
     if (!name || !email || !phone || !service || !description) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
         message: "Please provide all required fields",
+      });
+    }
+
+    // Validate address fields
+    if (
+      !address ||
+      !address.street ||
+      !address.state ||
+      !address.localGovernment ||
+      !address.area
+    ) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Please provide complete address information",
       });
     }
 
@@ -30,6 +44,7 @@ const submitHomeServiceForm = async (req, res) => {
           phone,
           service,
           description,
+          address,
           date: new Date().toLocaleDateString(),
         },
         (err, result) => {
@@ -47,7 +62,7 @@ const submitHomeServiceForm = async (req, res) => {
     await sendEmail({
       to: "support@aplet360.com",
       subject: `New Home Service Request: ${service}`,
-      text: `New home service request from ${name}. Service: ${service}. Contact: ${email}, ${phone}. Description: ${description}`,
+      text: `New home service request from ${name}. Service: ${service}. Contact: ${email}, ${phone}. Address: ${address.street}, ${address.area}, ${address.localGovernment}, ${address.state}. Description: ${description}`,
       html: emailHtml,
     });
 
@@ -99,7 +114,6 @@ const submitBecomeArtisanForm = async (req, res) => {
       !fullName ||
       !email ||
       !phone ||
-      !address ||
       !skillCategory ||
       !experience ||
       !idType ||
@@ -109,6 +123,20 @@ const submitBecomeArtisanForm = async (req, res) => {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
         message: "Please provide all required fields",
+      });
+    }
+
+    // Validate address fields
+    if (
+      !address ||
+      !address.street ||
+      !address.state ||
+      !address.localGovernment ||
+      !address.area
+    ) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Please provide complete address information",
       });
     }
 
@@ -143,7 +171,7 @@ const submitBecomeArtisanForm = async (req, res) => {
     await sendEmail({
       to: "support@aplet360.com",
       subject: `New Artisan Application: ${skillCategory}`,
-      text: `New artisan application from ${fullName}. Skill: ${skillCategory}. Experience: ${experience}. Contact: ${email}, ${phone}.`,
+      text: `New artisan application from ${fullName}. Skill: ${skillCategory}. Experience: ${experience}. Contact: ${email}, ${phone}. Address: ${address.street}, ${address.area}, ${address.localGovernment}, ${address.state}.`,
       html: emailHtml,
     });
 
@@ -245,8 +273,152 @@ const submitContactForm = async (req, res) => {
   }
 };
 
+// Submit dispute resolution form
+const submitDisputeResolutionForm = async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      phone,
+      actionType,
+      disputeType,
+      bookingReference,
+      propertyName,
+      otherPartyId,
+      description,
+      urgencyLevel,
+      userRole,
+      paymentReference,
+      paymentStatus,
+      amount,
+    } = req.body;
+
+    // Validate required fields
+    if (
+      !name ||
+      !email ||
+      !phone ||
+      !actionType ||
+      !disputeType ||
+      !description
+    ) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Please provide all required fields",
+      });
+    }
+
+    // Validate action type
+    if (!["report", "dispute"].includes(actionType)) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Invalid action type",
+      });
+    }
+
+    // For disputes, otherPartyId and payment are required
+    if (actionType === "dispute") {
+      if (!otherPartyId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Other party ID is required for disputes",
+        });
+      }
+
+      if (!paymentReference || paymentStatus !== "paid") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Payment is required for dispute resolution",
+        });
+      }
+    }
+
+    // Render email template
+    const emailHtml = await new Promise((resolve, reject) => {
+      ejs.renderFile(
+        path.join(__dirname, "../views/emails/disputeResolution.ejs"),
+        {
+          name,
+          email,
+          phone,
+          actionType,
+          disputeType,
+          bookingReference: bookingReference || "Not provided",
+          propertyName: propertyName || "Not provided",
+          otherPartyId: otherPartyId || "Not provided",
+          description,
+          urgencyLevel,
+          userRole: userRole || "User",
+          date: new Date().toLocaleDateString(),
+          isDispute: actionType === "dispute",
+          paymentReference: paymentReference || "Not applicable",
+          paymentStatus: paymentStatus || "Not applicable",
+          amount: amount || 0,
+        },
+        (err, result) => {
+          if (err) {
+            console.error("Error rendering email template:", err);
+            reject(err);
+          } else {
+            resolve(result);
+          }
+        }
+      );
+    });
+
+    // Determine email recipient based on action type
+    const recipient =
+      actionType === "dispute" ? "legal@aplet360.com" : "support@aplet360.com";
+    const subjectPrefix = actionType === "dispute" ? "DISPUTE" : "REPORT";
+    const actionLabel = actionType === "dispute" ? "Dispute" : "Report";
+
+    // Send email notification
+    await sendEmail({
+      to: "support@aplet360.com",
+      subject: `${subjectPrefix}: ${disputeType} - ${urgencyLevel.toUpperCase()} Priority`,
+      text: `New ${actionLabel.toLowerCase()} from ${name}. Type: ${disputeType}. Contact: ${email}, ${phone}. Other Party ID: ${
+        otherPartyId || "Not provided"
+      }. Description: ${description}`,
+      html: emailHtml,
+    });
+
+    // Send confirmation email to user
+    const confirmationMessage =
+      actionType === "dispute"
+        ? "Your dispute has been submitted to our legal team and will be reviewed within 24-48 hours."
+        : "Your report has been submitted to our support team and will be reviewed within 24 hours.";
+
+    await sendEmail({
+      to: email,
+      subject: `${actionLabel} Received - Aplet360`,
+      text: `Dear ${name}, thank you for submitting your ${actionLabel.toLowerCase()}. ${confirmationMessage}`,
+      html: `<p>Dear ${name},</p>
+             <p>Thank you for submitting your ${actionLabel.toLowerCase()} regarding <strong>${disputeType}</strong>.</p>
+             <p>${confirmationMessage}</p>
+             <p>Reference: ${bookingReference || "N/A"}</p>
+             <p>Best regards,<br>Aplet360 ${
+               actionType === "dispute" ? "Legal" : "Support"
+             } Team</p>`,
+    });
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: `${actionLabel} submitted successfully`,
+      actionType,
+    });
+  } catch (error) {
+    console.error("Error submitting dispute resolution form:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Failed to submit request",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   submitHomeServiceForm,
   submitBecomeArtisanForm,
   submitContactForm,
+  submitDisputeResolutionForm,
 };

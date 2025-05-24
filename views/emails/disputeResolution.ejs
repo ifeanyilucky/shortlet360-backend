@@ -1,0 +1,179 @@
+<%- include('./layout/emailLayout', {
+  title: isDispute ? 'Dispute Resolution Request' : 'Issue Report',
+  content: `
+    <div style="background-color: #f8fafc; padding: 40px 20px;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; padding: 30px; border-radius: 8px 8px 0 0; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px; font-weight: bold;">
+            ${isDispute ? '🚨 DISPUTE RESOLUTION REQUEST' : '📋 ISSUE REPORT'}
+          </h1>
+          <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 16px;">
+            ${isDispute ? 'Legal Team Review Required' : 'Support Team Review Required'}
+          </p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 30px;">
+
+          <!-- Priority Alert -->
+          ${urgencyLevel === 'critical' || urgencyLevel === 'high' ? `
+            <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 15px; margin-bottom: 25px;">
+              <div style="display: flex; align-items: center;">
+                <span style="color: #dc2626; font-size: 18px; margin-right: 10px;">⚠️</span>
+                <div>
+                  <h3 style="margin: 0; color: #dc2626; font-size: 16px; font-weight: bold;">
+                    ${urgencyLevel.toUpperCase()} PRIORITY
+                  </h3>
+                  <p style="margin: 5px 0 0 0; color: #7f1d1d; font-size: 14px;">
+                    This ${isDispute ? 'dispute' : 'report'} requires immediate attention.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Action Type -->
+          <div style="background-color: ${isDispute ? '#fef3c7' : '#dbeafe'}; border-radius: 6px; padding: 15px; margin-bottom: 25px;">
+            <h3 style="margin: 0 0 5px 0; color: ${isDispute ? '#92400e' : '#1e40af'}; font-size: 16px; font-weight: bold;">
+              Action Type: ${actionType === 'dispute' ? 'DISPUTE (₦2,000 Fee)' : 'REPORT (Free)'}
+            </h3>
+            <p style="margin: 0; color: ${isDispute ? '#78350f' : '#1e3a8a'}; font-size: 14px;">
+              ${isDispute ? 'This dispute involves legal mediation and requires a ₦2,000 processing fee.' : 'This is a free report that will be handled by our support team.'}
+            </p>
+          </div>
+
+          <!-- Submitter Information -->
+          <div style="margin-bottom: 25px;">
+            <h3 style="color: #374151; font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px;">
+              👤 Submitter Information
+            </h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500; width: 30%;">Name:</td>
+                <td style="padding: 8px 0; color: #111827;">${name}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Email:</td>
+                <td style="padding: 8px 0; color: #111827;">${email}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Phone:</td>
+                <td style="padding: 8px 0; color: #111827;">${phone}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Role:</td>
+                <td style="padding: 8px 0; color: #111827;">${userRole}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Date Submitted:</td>
+                <td style="padding: 8px 0; color: #111827;">${date}</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Case Details -->
+          <div style="margin-bottom: 25px;">
+            <h3 style="color: #374151; font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px;">
+              📋 Case Details
+            </h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500; width: 30%;">Type:</td>
+                <td style="padding: 8px 0; color: #111827;">${disputeType}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Urgency:</td>
+                <td style="padding: 8px 0; color: #111827;">
+                  <span style="background-color: ${urgencyLevel === 'critical' ? '#dc2626' : urgencyLevel === 'high' ? '#f59e0b' : urgencyLevel === 'medium' ? '#10b981' : '#6b7280'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">
+                    ${urgencyLevel.toUpperCase()}
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Booking Ref:</td>
+                <td style="padding: 8px 0; color: #111827;">${bookingReference}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Property:</td>
+                <td style="padding: 8px 0; color: #111827;">${propertyName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Other Party ID:</td>
+                <td style="padding: 8px 0; color: #111827; font-weight: bold;">
+                  ${otherPartyId && otherPartyId !== 'Not provided' ? `
+                    <span style="background-color: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px;">
+                      ${otherPartyId}
+                    </span>
+                  ` : `
+                    <span style="color: #6b7280; font-style: italic;">Not provided</span>
+                  `}
+                </td>
+              </tr>
+              ${isDispute && paymentReference && paymentReference !== 'Not applicable' ? `
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Payment Reference:</td>
+                <td style="padding: 8px 0; color: #111827; font-weight: bold;">
+                  <span style="background-color: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 4px; font-family: monospace;">
+                    ${paymentReference}
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-weight: 500;">Amount Paid:</td>
+                <td style="padding: 8px 0; color: #111827; font-weight: bold;">
+                  <span style="color: #166534;">₦${amount.toLocaleString()}</span>
+                </td>
+              </tr>
+              ` : ''}
+            </table>
+          </div>
+
+          <!-- Description -->
+          <div style="margin-bottom: 25px;">
+            <h3 style="color: #374151; font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px;">
+              📝 Description
+            </h3>
+            <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px;">
+              <p style="margin: 0; color: #374151; line-height: 1.6; white-space: pre-wrap;">${description}</p>
+            </div>
+          </div>
+
+          <!-- Next Steps -->
+          <div style="background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 20px; margin-bottom: 25px;">
+            <h3 style="margin: 0 0 10px 0; color: #0c4a6e; font-size: 16px; font-weight: bold;">
+              📋 Next Steps
+            </h3>
+            ${isDispute ? `
+              <ul style="margin: 0; padding-left: 20px; color: #0c4a6e;">
+                <li>Legal team will review this dispute within 24-48 hours</li>
+                <li>Both parties will be contacted for additional information if needed</li>
+                <li>Mediation process will begin once all information is gathered</li>
+                <li>Resolution will be communicated to both parties</li>
+              </ul>
+            ` : `
+              <ul style="margin: 0; padding-left: 20px; color: #0c4a6e;">
+                <li>Support team will review this report within 24 hours</li>
+                <li>Additional information may be requested if needed</li>
+                <li>Resolution or response will be provided promptly</li>
+                <li>Follow-up communication will be sent via email</li>
+              </ul>
+            `}
+          </div>
+
+          <!-- Contact Information -->
+          <div style="text-align: center; padding: 20px; background-color: #f8fafc; border-radius: 6px;">
+            <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
+              For urgent matters, contact us directly:
+            </p>
+            <p style="margin: 0; color: #374151; font-weight: 500;">
+              📧 ${isDispute ? 'legal@aplet360.com' : 'support@aplet360.com'} | 📞 09038775464
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  `
+}) %>

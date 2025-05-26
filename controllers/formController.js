@@ -10,7 +10,8 @@ const path = require("path");
  */
 const submitHomeServiceForm = async (req, res) => {
   try {
-    const { name, email, phone, service, description, address } = req.body;
+    const { name, email, phone, service, customService, description, address } =
+      req.body;
 
     // Validate required fields
     if (!name || !email || !phone || !service || !description) {
@@ -43,6 +44,7 @@ const submitHomeServiceForm = async (req, res) => {
           email,
           phone,
           service,
+          customService,
           description,
           address,
           date: new Date().toLocaleDateString(),
@@ -62,7 +64,13 @@ const submitHomeServiceForm = async (req, res) => {
     await sendEmail({
       to: "support@aplet360.com",
       subject: `New Home Service Request: ${service}`,
-      text: `New home service request from ${name}. Service: ${service}. Contact: ${email}, ${phone}. Address: ${address.street}, ${address.area}, ${address.localGovernment}, ${address.state}. Description: ${description}`,
+      text: `New home service request from ${name}. Service: ${service}${
+        customService ? ` (Custom: ${customService})` : ""
+      }. Contact: ${email}, ${phone}. Address: ${address.street}, ${
+        address.area
+      }, ${address.localGovernment}, ${
+        address.state
+      }. Description: ${description}`,
       html: emailHtml,
     });
 
@@ -70,9 +78,13 @@ const submitHomeServiceForm = async (req, res) => {
     await sendEmail({
       to: email,
       subject: "Your Home Service Request - Aplet360",
-      text: `Dear ${name}, thank you for your home service request. We have received your request for ${service} and will get back to you shortly.`,
+      text: `Dear ${name}, thank you for your home service request. We have received your request for ${service}${
+        customService ? ` (${customService})` : ""
+      } and will get back to you shortly.`,
       html: `<p>Dear ${name},</p>
-             <p>Thank you for your home service request. We have received your request for <strong>${service}</strong> and will get back to you shortly.</p>
+             <p>Thank you for your home service request. We have received your request for <strong>${service}${
+        customService ? ` (${customService})` : ""
+      }</strong> and will get back to you shortly.</p>
              <p>Best regards,<br>Aplet360 Team</p>`,
     });
 

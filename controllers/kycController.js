@@ -176,6 +176,27 @@ const initiatePhoneVerification = async (req, res) => {
       if (user.kyc.tier1.email_verified) {
         user.kyc.tier1.status = "verified";
         user.kyc.tier1.completed_at = new Date();
+
+        // Check if user was referred and verify the referral
+        if (user.referral?.referred_by) {
+          try {
+            const Referral = require("../models/referral");
+            const referral = await Referral.findOne({
+              referred_user: user._id,
+              status: "pending",
+            });
+
+            if (referral) {
+              await referral.markAsVerified();
+              console.log(
+                `Referral verified for user ${user._id} via phone verification`
+              );
+            }
+          } catch (error) {
+            console.error("Error verifying referral:", error);
+            // Don't fail the phone verification if referral verification fails
+          }
+        }
       }
 
       await user.save();
@@ -257,6 +278,27 @@ const verifyEmail = async (req, res) => {
   if (user.kyc.tier1.phone_verified) {
     user.kyc.tier1.status = "verified";
     user.kyc.tier1.completed_at = new Date();
+
+    // Check if user was referred and verify the referral
+    if (user.referral?.referred_by) {
+      try {
+        const Referral = require("../models/referral");
+        const referral = await Referral.findOne({
+          referred_user: user._id,
+          status: "pending",
+        });
+
+        if (referral) {
+          await referral.markAsVerified();
+          console.log(
+            `Referral verified for user ${user._id} via email verification`
+          );
+        }
+      } catch (error) {
+        console.error("Error verifying referral:", error);
+        // Don't fail the email verification if referral verification fails
+      }
+    }
   }
 
   await user.save();

@@ -1,0 +1,83 @@
+<%- include('./layout/emailLayout', { 
+  title: 'You\'re Invited to Join Aplet360!',
+  content: `
+    <div class="email-content">
+      <h2>🎉 You're Invited to Join Aplet360!</h2>
+      
+      <div class="info-section">
+        <p>Hello!</p>
+        <p><strong>${referrerName}</strong> (${referrerEmail}) has invited you to join <strong>Aplet360</strong>, Africa's premier apartment rental and shortlet platform!</p>
+      </div>
+      
+      <div class="info-section">
+        <h3>🏠 Why Join Aplet360?</h3>
+        <ul>
+          <li><strong>For Tenants:</strong> Find verified apartments with flexible payment options</li>
+          <li><strong>For Landlords:</strong> List your properties and find verified tenants</li>
+          <li><strong>For Everyone:</strong> Access to premium Home Fix services</li>
+          <li><strong>Bonus:</strong> Get FREE Home Fix services when you complete verification!</li>
+        </ul>
+      </div>
+      
+      <div class="info-section">
+        <h3>🎁 Special Referral Benefits</h3>
+        <p>By signing up through this invitation, both you and ${referrerName} will earn:</p>
+        <ul>
+          <li>FREE Home Fix services (plumbing, electrical, painting, etc.)</li>
+          <li>Priority customer support</li>
+          <li>Access to exclusive property listings</li>
+          <li>Flexible payment options for rentals</li>
+        </ul>
+      </div>
+      
+      <div class="action-section">
+        <p><strong>Ready to get started?</strong></p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${referralLink}" class="button" style="background-color: #1a365d; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+            Join Aplet360 Now
+          </a>
+        </div>
+        <p style="text-align: center; color: #666; font-size: 14px;">
+          Referral Code: <strong>${referralCode}</strong>
+        </p>
+      </div>
+      
+      <div class="info-section">
+        <h3>🔧 About Home Fix Services</h3>
+        <p>Our Home Fix services include:</p>
+        <ul>
+          <li>Plumbing repairs and installations</li>
+          <li>Electrical work and wiring</li>
+          <li>Painting and decorating</li>
+          <li>Carpentry and furniture assembly</li>
+          <li>General home maintenance</li>
+          <li>And much more!</li>
+        </ul>
+      </div>
+      
+      <div class="alert" style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; margin: 20px 0;">
+        <p><strong>Important:</strong> To earn your FREE Home Fix services, make sure to:</p>
+        <ol>
+          <li>Click the link above to register</li>
+          <li>Complete your account verification</li>
+          <li>Complete your KYC process</li>
+        </ol>
+        <p>Both you and ${referrerName} will receive your rewards once verification is complete!</p>
+      </div>
+      
+      <div class="info-section">
+        <p>If you're having trouble clicking the button above, copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; background-color: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace;">
+          ${referralLink}
+        </p>
+      </div>
+      
+      <div class="info-section">
+        <p>Questions? Contact our support team at <a href="mailto:support@aplet360.com">support@aplet360.com</a> or call 09122842288.</p>
+        <p style="color: #666; font-size: 14px;">
+          This invitation was sent on ${date}. If you didn't expect this invitation, you can safely ignore this email.
+        </p>
+      </div>
+    </div>
+  `
+}) %>

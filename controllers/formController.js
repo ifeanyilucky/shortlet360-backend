@@ -428,9 +428,83 @@ const submitDisputeResolutionForm = async (req, res) => {
   }
 };
 
+// Submit inspection request form
+const submitInspectionRequest = async (req, res) => {
+  try {
+    const {
+      fullName,
+      phoneNumber,
+      propertyId,
+      preferredDate1,
+      preferredDate2,
+      preferredDate3,
+    } = req.body;
+
+    // Validate required fields
+    if (
+      !fullName ||
+      !phoneNumber ||
+      !propertyId ||
+      !preferredDate1 ||
+      !preferredDate2 ||
+      !preferredDate3
+    ) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    // Render email template
+    const emailHtml = await new Promise((resolve, reject) => {
+      ejs.renderFile(
+        path.join(__dirname, "../views/emails/inspectionRequest.ejs"),
+        {
+          fullName,
+          phoneNumber,
+          propertyId,
+          preferredDate1,
+          preferredDate2,
+          preferredDate3,
+          date: new Date().toLocaleDateString(),
+        },
+        (err, result) => {
+          if (err) {
+            console.error("Error rendering email template:", err);
+            reject(err);
+          } else {
+            resolve(result);
+          }
+        }
+      );
+    });
+
+    // Send email notification
+    await sendEmail({
+      to: "support@aplet360.com",
+      subject: `New Property Inspection Request - ${propertyId}`,
+      text: `New property inspection request from ${fullName}. Property ID: ${propertyId}. Contact: ${phoneNumber}. Preferred dates: ${preferredDate1}, ${preferredDate2}, ${preferredDate3}`,
+      html: emailHtml,
+    });
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Inspection request submitted successfully",
+    });
+  } catch (error) {
+    console.error("Error submitting inspection request:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Failed to submit inspection request",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   submitHomeServiceForm,
   submitBecomeArtisanForm,
   submitContactForm,
   submitDisputeResolutionForm,
+  submitInspectionRequest,
 };

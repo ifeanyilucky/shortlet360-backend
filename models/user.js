@@ -134,6 +134,27 @@ const userSchema = new mongoose.Schema(
         completed_at: Date,
       },
     },
+    // Referral System Fields
+    referral: {
+      referral_code: {
+        type: String,
+        unique: true,
+        sparse: true, // Allows multiple null values
+      },
+      referred_by: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+      referral_stats: {
+        total_referrals: { type: Number, default: 0 },
+        verified_referrals: { type: Number, default: 0 },
+        pending_referrals: { type: Number, default: 0 },
+        earned_rewards: { type: Number, default: 0 },
+        available_rewards: { type: Number, default: 0 },
+        last_reward_earned: Date,
+      },
+    },
   },
   { timestamps: true }
 );

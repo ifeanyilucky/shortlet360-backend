@@ -11,23 +11,112 @@ const path = require("path");
 const ejs = require("ejs");
 const { generateShortUserId } = require("../utils/utils");
 
+// Register a new user
 const register = async (req, res) => {
   // Check if user already exists
-  const { email, role } = req.body;
+  const { email, role, referral_code } = req.body;
   const oldUser = await User.findOne({ email });
   if (oldUser) {
     throw new BadRequestError("Another user with this email already exists.");
   }
 
   const short_id = await generateShortUserId(role || "user");
+  const currentYear = new Date().getFullYear();
+  // Handle referral code if provided
+  let referrerUser = null;
+  if (referral_code) {
+    // More flexible referral code validation
+    // Accept formats: APLET-{short_id}-{year} or just find by referral_code directly
+    let referrerShortId = null;
+
+    // Try to extract short_id from referral code format: APLET-{short_id}-{year}
+    const referralCodeMatch = referral_code.match(/^APLET-(.+)-(\d{4})$/);
+    if (referralCodeMatch) {
+      referrerShortId = referralCodeMatch[1];
+      // Find user by short_id first
+      referrerUser = await User.findOne({ short_id: referrerShortId });
+    }
+
+    // If not found by short_id, try to find by exact referral code
+    if (!referrerUser) {
+      referrerUser = await User.findOne({
+        "referral.referral_code": referral_code,
+      });
+    }
+
+    // If still not found, try a more lenient search
+    if (!referrerUser && referrerShortId) {
+      referrerUser = await User.findOne({ short_id: referrerShortId });
+    }
+
+    // Try alternative format matching (in case of different formats)
+    if (!referrerUser && referral_code.startsWith("APLET-")) {
+      // Try to extract any alphanumeric part after APLET-
+      const altMatch = referral_code.match(/^APLET-([A-Za-z0-9]+)/);
+      if (altMatch) {
+        const possibleShortId = altMatch[1];
+        referrerUser = await User.findOne({ short_id: possibleShortId });
+      }
+    }
+
+    if (!referrerUser) {
+      // Instead of throwing an error, just log it and continue without referral
+      console.log(`Referral code not found: ${referral_code}`);
+      // Don't throw error - just proceed without referral
+    }
+
+    // Check if user is trying to refer themselves (only if referrer was found)
+    if (
+      referrerUser &&
+      referrerUser.email.toLowerCase() === email.toLowerCase()
+    ) {
+      throw new BadRequestError("You cannot refer yourself");
+    }
+  }
+
+  // Generate referral code for the new user
+  const userReferralCode = `APLET-${short_id}-${currentYear}`;
 
   // Create user with inactive status and pending payment
-  const result = await User.create({
+  const userData = {
     ...req.body,
     short_id,
     is_active: false,
     registration_payment_status: "pending",
-  });
+    referral: {
+      referral_code: userReferralCode,
+      referred_by: referrerUser ? referrerUser._id : null,
+      referral_stats: {
+        total_referrals: 0,
+        verified_referrals: 0,
+        pending_referrals: 0,
+        earned_rewards: 0,
+        available_rewards: 0,
+      },
+    },
+  };
+
+  const result = await User.create(userData);
+
+  // Create referral record if user was referred
+  if (referrerUser) {
+    const Referral = require("../models/referral");
+    await Referral.create({
+      referrer: referrerUser._id,
+      referred_user: result._id,
+      referral_code: referral_code,
+      referred_user_role: role || "user",
+      status: "pending",
+    });
+
+    // Update referrer's stats
+    await User.findByIdAndUpdate(referrerUser._id, {
+      $inc: {
+        "referral.referral_stats.total_referrals": 1,
+        "referral.referral_stats.pending_referrals": 1,
+      },
+    });
+  }
 
   // Send welcome email to the user
   try {
@@ -45,6 +134,12 @@ const register = async (req, res) => {
     token,
     role,
     requiresPayment: true,
+    referralInfo: referrerUser
+      ? {
+          referredBy: `${referrerUser.first_name} ${referrerUser.last_name}`,
+          referralCode: referral_code,
+        }
+      : null,
   });
 };
 
@@ -67,8 +162,8 @@ const login = async (req, res) => {
     throw new UnauthenticatedError(`Sorry, that password isn't right`);
   }
 
-  // Check if user has completed registration payment
-  if (user.registration_payment_status === "pending") {
+  // Check if user has completed registration payment (only for owners)
+  if (user.registration_payment_status === "pending" && user.role === "owner") {
     const token = user.createJWT();
     return res.status(StatusCodes.OK).json({
       user,
@@ -79,12 +174,12 @@ const login = async (req, res) => {
     });
   }
 
-  // Check if user account is active
-  if (!user.is_active) {
-    throw new UnauthenticatedError(
-      "Your account is not active. Please contact support."
-    );
-  }
+  // // Check if user account is active
+  // if (!user.is_active) {
+  //   throw new UnauthenticatedError(
+  //     "Your account is not active. Please contact support."
+  //   );
+  // }
 
   const token = user.createJWT();
 

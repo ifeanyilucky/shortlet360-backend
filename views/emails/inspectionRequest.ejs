@@ -1,0 +1,31 @@
+<%- include('./layout/emailLayout', { 
+  title: 'Property Inspection Request',
+  content: `
+    <div class="email-content">
+      <h2>New Property Inspection Request</h2>
+      
+      <div class="info-section">
+        <p><strong>Date:</strong> ${date}</p>
+        <p><strong>Property ID:</strong> ${propertyId}</p>
+      </div>
+      
+      <div class="info-section">
+        <h3>Requester Information</h3>
+        <p><strong>Full Name:</strong> ${fullName}</p>
+        <p><strong>Phone Number:</strong> ${phoneNumber}</p>
+      </div>
+      
+      <div class="info-section">
+        <h3>Preferred Inspection Dates</h3>
+        <p><strong>First Choice:</strong> ${preferredDate1}</p>
+        <p><strong>Second Choice:</strong> ${preferredDate2}</p>
+        <p><strong>Third Choice:</strong> ${preferredDate3}</p>
+      </div>
+      
+      <div class="action-section">
+        <p>Please contact the requester within 24 hours to schedule the inspection.</p>
+        <p>Ensure to verify the property details and coordinate with the property owner.</p>
+      </div>
+    </div>
+  `
+}) %>

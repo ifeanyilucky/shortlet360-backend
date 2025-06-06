@@ -14,4 +14,7 @@ router.post("/contact", formController.submitContactForm);
 // Dispute resolution form submission
 router.post("/dispute-resolution", formController.submitDisputeResolutionForm);
 
+// Inspection request form submission
+router.post("/inspection-request", formController.submitInspectionRequest);
+
 module.exports = router;

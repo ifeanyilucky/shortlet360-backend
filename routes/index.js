@@ -10,6 +10,7 @@ const kycRoutes = require("./kycRoutes");
 const adminRoutes = require("./adminRoutes");
 const adminAuthRoutes = require("./adminAuthRoutes");
 const formRoutes = require("./formRoutes");
+const referralRoutes = require("./referralRoutes");
 
 router.use("/auth", authRouter);
 router.use("/auth/admin", adminAuthRoutes);
@@ -20,5 +21,6 @@ router.use("/upload", uploadRoutes);
 router.use("/kyc", kycRoutes);
 router.use("/admin", adminRoutes);
 router.use("/forms", formRoutes);
+router.use("/referral", referralRoutes);
 
 module.exports = router;

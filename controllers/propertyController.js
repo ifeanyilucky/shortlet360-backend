@@ -300,6 +300,22 @@ const propertyController = {
         });
       }
 
+      // Fix property_videos structure if needed
+      if (req.body.property_videos && Array.isArray(req.body.property_videos)) {
+        req.body.property_videos = req.body.property_videos.map((vid) => {
+          // Check if url is an object instead of a string
+          if (vid.url && typeof vid.url === "object" && vid.url.url) {
+            return {
+              url: vid.url.url,
+              public_id: vid.url.public_id || vid.public_id || "",
+              asset_id: vid.url.asset_id || vid.asset_id || "",
+              _id: vid._id, // Keep the _id if it exists
+            };
+          }
+          return vid;
+        });
+      }
+
       // Update the property with the new data
       Object.assign(existingProperty, req.body);
 

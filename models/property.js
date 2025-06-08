@@ -49,6 +49,13 @@ const propertySchema = new mongoose.Schema(
         asset_id: String,
       },
     ],
+    property_videos: [
+      {
+        url: String,
+        public_id: String,
+        asset_id: String,
+      },
+    ],
     property_type: { type: String, required: true },
     property_category: {
       type: String,

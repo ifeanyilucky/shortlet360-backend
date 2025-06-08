@@ -89,15 +89,25 @@ const bookingController = {
 
       // Check if this is a monthly rent booking
       if (is_monthly_rent) {
-        // Verify user has completed Tier 3 KYC for monthly rent
+        // Verify user has completed Tier 3 KYC for monthly rent (admin users bypass this check)
         const user = await User.findById(req.user._id);
-        if (!user.kyc || !user.kyc.tier3 || user.kyc.tier3.status !== "verified") {
-          throw new BadRequestError("You must complete Tier 3 KYC verification to book monthly rentals");
+        if (
+          user.role !== "admin" &&
+          (!user.kyc || !user.kyc.tier3 || user.kyc.tier3.status !== "verified")
+        ) {
+          throw new BadRequestError(
+            "You must complete Tier 3 KYC verification to book monthly rentals"
+          );
         }
 
         // Validate monthly rent option
-        if (!monthly_rent_option || !["option1", "option2"].includes(monthly_rent_option)) {
-          throw new BadRequestError("Please select a valid monthly rent payment option");
+        if (
+          !monthly_rent_option ||
+          !["option1", "option2"].includes(monthly_rent_option)
+        ) {
+          throw new BadRequestError(
+            "Please select a valid monthly rent payment option"
+          );
         }
       }
 
@@ -202,7 +212,7 @@ const bookingController = {
           annual_rent,
           monthly_base,
           interest_rate,
-          interest_amount
+          interest_amount,
         };
       }
 

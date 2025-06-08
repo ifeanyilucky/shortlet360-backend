@@ -21,6 +21,16 @@ const getKycStatus = async (req, res) => {
     throw new NotFoundError("User not found");
   }
 
+  // Admin users don't need KYC verification
+  if (user.role === "admin") {
+    return res.status(StatusCodes.OK).json({
+      kyc: {},
+      requiredTiers: [],
+      overallStatus: "not_required",
+      message: "KYC verification is not required for admin users",
+    });
+  }
+
   // Determine which tiers are required based on role
   const requiredTiers = user.role === "owner" ? ["tier1", "tier2"] : ["tier1"];
 

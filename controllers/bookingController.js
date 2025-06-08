@@ -9,7 +9,9 @@ const bookingController = {
   // Get booking by id
   getBooking: async (req, res) => {
     const { id } = req.params;
-    const booking = await Booking.findById(id).populate("property_id");
+    const booking = await Booking.findById(id)
+      .populate("property_id")
+      .populate("guest", "name email phone");
     if (!booking) {
       throw new NotFoundError("Booking not found");
     }

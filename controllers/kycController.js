@@ -320,17 +320,219 @@ const verifyEmail = async (req, res) => {
 };
 
 /**
- * Submit Tier 2 verification (address and identity)
+ * Submit Tier 1 verification (phone and NIN)
+ */
+const submitTier1Verification = async (req, res) => {
+  const { phone_number, nin } = req.body;
+
+  if (!phone_number) {
+    throw new BadRequestError("Phone number is required");
+  }
+
+  if (!nin) {
+    throw new BadRequestError("NIN is required");
+  }
+
+  // Basic phone number format validation (Nigerian numbers)
+  const phoneRegex = /^\+234[789][01]\d{8}$|^[789][01]\d{8}$/;
+  if (!phoneRegex.test(phone_number.replace(/\s+/g, ""))) {
+    throw new BadRequestError("Please provide a valid Nigerian phone number");
+  }
+
+  // Basic NIN format validation (11 digits)
+  const ninRegex = /^\d{11}$/;
+  if (!ninRegex.test(nin)) {
+    throw new BadRequestError("NIN must be exactly 11 digits");
+  }
+
+  const user = await User.findById(req.user._id);
+
+  if (!user) {
+    throw new NotFoundError("User not found");
+  }
+
+  // Log the verification attempt for debugging
+  console.log(`Tier 1 verification attempt for user ${user._id}:`, {
+    submitted_phone: phone_number,
+    current_phone: user.phone_number,
+    submitted_nin: nin,
+    current_tier1_status: user.kyc?.tier1?.status,
+  });
+
+  // Check if Tier 1 is already verified and phone number is being changed
+  const isAlreadyVerified = user.kyc?.tier1?.status === "verified";
+  const phoneNumberChanged = user.phone_number !== phone_number;
+
+  if (isAlreadyVerified && phoneNumberChanged) {
+    throw new BadRequestError(
+      "Cannot change phone number after Tier 1 verification is complete. Please contact support if you need to update your phone number."
+    );
+  }
+
+  try {
+    // Check if phone number has changed or needs verification
+    const phoneAlreadyVerified = user.kyc?.tier1?.phone_verified === true;
+
+    let phoneVerificationResponse;
+
+    // Only verify phone number if it's new/changed or not previously verified
+    if (phoneNumberChanged || !phoneAlreadyVerified) {
+      console.log(
+        `Phone verification needed. Changed: ${phoneNumberChanged}, Previously verified: ${phoneAlreadyVerified}`
+      );
+
+      // Verify phone number using YouVerify
+      phoneVerificationResponse = await youverify.verifyPhoneNumber(
+        phone_number
+      );
+
+      // Check phone verification result
+      if (
+        !phoneVerificationResponse.success ||
+        phoneVerificationResponse.data.status !== "found"
+      ) {
+        throw new BadRequestError(
+          "Phone number verification failed. Please ensure you've entered a valid Nigerian phone number."
+        );
+      }
+    } else {
+      console.log("Phone number already verified, skipping verification");
+      phoneVerificationResponse = { success: true, data: { status: "found" } };
+    }
+
+    // Always verify NIN (as it's required for Tier 1)
+    const ninVerificationResponse = await youverify.verifyNIN(
+      nin,
+      user.first_name,
+      user.last_name
+    );
+
+    // Check NIN verification result
+    if (
+      !ninVerificationResponse.success ||
+      ninVerificationResponse.data.status !== "found"
+    ) {
+      throw new BadRequestError(
+        "NIN verification failed. Please ensure you've entered a valid NIN."
+      );
+    }
+
+    // Prepare the update object
+    const updateData = {
+      phone_number: phone_number, // Always update to ensure consistency
+      "kyc.tier1.phone_verified": true,
+      "kyc.tier1.nin_verified": true,
+      "kyc.tier1.nin": nin,
+      // Store phone verification data from YouVerify
+      "kyc.tier1.phone_verification_data": {
+        verification_id: phoneVerificationResponse.data.id,
+        status: phoneVerificationResponse.data.status,
+        phone_details: phoneVerificationResponse.data.phoneDetails || [],
+        verification_response: phoneVerificationResponse.data,
+        verified_at: new Date(),
+      },
+      // Store NIN verification data from YouVerify
+      "kyc.tier1.nin_verification_data": {
+        verification_id: ninVerificationResponse.data.id,
+        status: ninVerificationResponse.data.status,
+        first_name: ninVerificationResponse.data.firstName,
+        middle_name: ninVerificationResponse.data.middleName,
+        last_name: ninVerificationResponse.data.lastName,
+        date_of_birth: ninVerificationResponse.data.dateOfBirth,
+        gender: ninVerificationResponse.data.gender,
+        address: ninVerificationResponse.data.address,
+        mobile: ninVerificationResponse.data.mobile,
+        birth_state: ninVerificationResponse.data.birthState,
+        birth_lga: ninVerificationResponse.data.birthLGA,
+        birth_country: ninVerificationResponse.data.birthCountry,
+        religion: ninVerificationResponse.data.religion,
+        image: ninVerificationResponse.data.image,
+        verification_response: ninVerificationResponse.data,
+        verified_at: new Date(),
+      },
+    };
+
+    // Check if email is already verified to determine if tier1 should be marked as verified
+    if (user.kyc?.tier1?.email_verified) {
+      updateData["kyc.tier1.status"] = "verified";
+      updateData["kyc.tier1.completed_at"] = new Date();
+    }
+
+    // Update user using findByIdAndUpdate to avoid validation issues
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: updateData },
+      { new: true, runValidators: false } // Disable validators to avoid short_id issue
+    );
+
+    // Handle referral verification if tier1 is now complete
+    if (
+      updateData["kyc.tier1.status"] === "verified" &&
+      user.referral?.referred_by
+    ) {
+      try {
+        const Referral = require("../models/referral");
+        const referral = await Referral.findOne({
+          referred_user: user._id,
+          status: "pending",
+        });
+
+        if (referral) {
+          await referral.markAsVerified();
+          console.log(
+            `Referral verified for user ${user._id} via Tier 1 verification`
+          );
+        }
+      } catch (error) {
+        console.error("Error verifying referral:", error);
+        // Don't fail the verification if referral verification fails
+      }
+    }
+
+    res.status(StatusCodes.OK).json({
+      message: "Tier 1 verification submitted successfully",
+      kyc: updatedUser.kyc,
+      user: {
+        _id: updatedUser._id,
+        first_name: updatedUser.first_name,
+        last_name: updatedUser.last_name,
+        email: updatedUser.email,
+        phone_number: updatedUser.phone_number,
+        photo: updatedUser.photo,
+        business_name: updatedUser.business_name,
+        role: updatedUser.role,
+        is_verified: updatedUser.is_verified,
+        is_active: updatedUser.is_active,
+        registration_payment_status: updatedUser.registration_payment_status,
+        registration_payment: updatedUser.registration_payment,
+        host_details: updatedUser.host_details,
+        favorites: updatedUser.favorites,
+        short_id: updatedUser.short_id,
+        kyc: updatedUser.kyc,
+        referral: updatedUser.referral,
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
+      },
+      verification_details: {
+        phone_number_verified: true,
+        nin_verified: true,
+        phone_number_updated: phoneNumberChanged,
+        tier1_status: updatedUser.kyc.tier1.status,
+      },
+    });
+  } catch (error) {
+    throw new BadRequestError(error.message || "Tier 1 verification failed");
+  }
+};
+
+/**
+ * Submit Tier 2 verification (address only)
  */
 const submitTier2Verification = async (req, res) => {
-  const { address, identity } = req.body;
+  const { address } = req.body;
 
   if (!address) {
     throw new BadRequestError("Address information is required");
-  }
-
-  if (!identity || !identity.nin) {
-    throw new BadRequestError("NIN is required");
   }
 
   const user = await User.findById(req.user._id);
@@ -345,21 +547,11 @@ const submitTier2Verification = async (req, res) => {
   }
 
   try {
-    // Verify NIN with YouVerify
-    const ninVerificationResult = await youverify.verifyNIN(
-      identity.nin,
-      user.first_name,
-      user.last_name
-    );
-
     // Initialize Tier 2 if it doesn't exist
     if (!user.kyc.tier2) {
       user.kyc.tier2 = {
         status: "pending",
         address: {
-          verification_status: "not_submitted",
-        },
-        identity: {
           verification_status: "not_submitted",
         },
       };
@@ -375,29 +567,8 @@ const submitTier2Verification = async (req, res) => {
       verification_status: "pending",
     };
 
-    // Update identity information
-    user.kyc.tier2.identity = {
-      nin: identity.nin,
-      verification_status:
-        ninVerificationResult.success &&
-        ninVerificationResult.data.status === "found"
-          ? "verified"
-          : "rejected",
-      verification_data: ninVerificationResult,
-      nin_verification_id: ninVerificationResult.data?.id || null,
-    };
-
     // Update overall Tier 2 status
     user.kyc.tier2.status = "pending";
-
-    // If both address and identity are verified, mark Tier 2 as verified
-    if (
-      user.kyc.tier2.address.verification_status === "verified" &&
-      user.kyc.tier2.identity.verification_status === "verified"
-    ) {
-      user.kyc.tier2.status = "verified";
-      user.kyc.tier2.completed_at = new Date();
-    }
 
     await user.save();
 
@@ -487,6 +658,7 @@ module.exports = {
   initiatePhoneVerification,
   verifyPhoneNumber,
   verifyEmail,
+  submitTier1Verification,
   submitTier2Verification,
   submitTier3Verification,
 };

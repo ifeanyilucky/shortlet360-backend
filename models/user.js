@@ -60,7 +60,7 @@ const userSchema = new mongoose.Schema(
     resetPasswordExpire: Date,
     // KYC Verification Fields
     kyc: {
-      // Tier 1: Phone and Email Verification
+      // Tier 1: Phone, Email and NIN Verification
       tier1: {
         status: {
           type: String,
@@ -69,6 +69,35 @@ const userSchema = new mongoose.Schema(
         },
         email_verified: { type: Boolean, default: false },
         phone_verified: { type: Boolean, default: false },
+        nin_verified: { type: Boolean, default: false },
+        nin: String,
+        // Store YouVerify phone verification response
+        phone_verification_data: {
+          verification_id: String,
+          status: String,
+          phone_details: Array,
+          verification_response: Object, // Full YouVerify response
+          verified_at: Date,
+        },
+        // Store YouVerify NIN verification response
+        nin_verification_data: {
+          verification_id: String,
+          status: String,
+          first_name: String,
+          middle_name: String,
+          last_name: String,
+          date_of_birth: String,
+          gender: String,
+          address: Object,
+          mobile: String,
+          birth_state: String,
+          birth_lga: String,
+          birth_country: String,
+          religion: String,
+          image: String, // Base64 image from YouVerify
+          verification_response: Object, // Full YouVerify response
+          verified_at: Date,
+        },
         completed_at: Date,
       },
       // Tier 2: Address and Identity Verification

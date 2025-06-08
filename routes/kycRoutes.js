@@ -22,6 +22,11 @@ router.post(
   authenticateUser,
   kycController.verifyPhoneNumber
 );
+router.post(
+  "/tier1/submit",
+  authenticateUser,
+  kycController.submitTier1Verification
+);
 router.get("/verify-email/:token", kycController.verifyEmail);
 
 // Tier 2 verification (address and identity)

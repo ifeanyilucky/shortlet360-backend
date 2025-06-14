@@ -32,6 +32,8 @@ const getKycStatus = async (req, res) => {
   }
 
   // Determine which tiers are required based on role
+  // USER: Tier 1 (Phone + NIN), Tier 2 (Utility Bill), Tier 3 (Bank + BVN + Business) for monthly rent
+  // OWNER: Tier 1 (Phone + NIN), Tier 2 (Utility Bill)
   const requiredTiers = user.role === "owner" ? ["tier1", "tier2"] : ["tier1"];
 
   // Calculate overall KYC status
@@ -154,15 +156,15 @@ const initiatePhoneVerification = async (req, res) => {
       user.kyc = {
         tier1: {
           status: "pending",
-          email_verified: false,
           phone_verified: false,
+          nin_verified: false,
         },
       };
     } else if (!user.kyc.tier1) {
       user.kyc.tier1 = {
         status: "pending",
-        email_verified: false,
         phone_verified: false,
+        nin_verified: false,
       };
     }
 
@@ -452,11 +454,9 @@ const submitTier1Verification = async (req, res) => {
       },
     };
 
-    // Check if email is already verified to determine if tier1 should be marked as verified
-    if (user.kyc?.tier1?.email_verified) {
-      updateData["kyc.tier1.status"] = "verified";
-      updateData["kyc.tier1.completed_at"] = new Date();
-    }
+    // Mark tier1 as verified since both phone and NIN are now verified
+    updateData["kyc.tier1.status"] = "verified";
+    updateData["kyc.tier1.completed_at"] = new Date();
 
     // Update user using findByIdAndUpdate to avoid validation issues
     const updatedUser = await User.findByIdAndUpdate(
@@ -526,13 +526,17 @@ const submitTier1Verification = async (req, res) => {
 };
 
 /**
- * Submit Tier 2 verification (address only)
+ * Submit Tier 2 verification (utility bill upload)
  */
 const submitTier2Verification = async (req, res) => {
-  const { address } = req.body;
+  const { document_type } = req.body;
 
-  if (!address) {
-    throw new BadRequestError("Address information is required");
+  if (!document_type) {
+    throw new BadRequestError("Document type is required");
+  }
+
+  if (!req.file) {
+    throw new BadRequestError("Utility bill document is required");
   }
 
   const user = await User.findById(req.user._id);
@@ -546,24 +550,42 @@ const submitTier2Verification = async (req, res) => {
     throw new BadRequestError("You must complete Tier 1 verification first");
   }
 
+  // Validate document type
+  const validDocumentTypes = [
+    "electricity",
+    "water",
+    "gas",
+    "internet",
+    "cable_tv",
+    "phone",
+  ];
+  if (!validDocumentTypes.includes(document_type)) {
+    throw new BadRequestError("Invalid document type");
+  }
+
   try {
     // Initialize Tier 2 if it doesn't exist
     if (!user.kyc.tier2) {
       user.kyc.tier2 = {
-        status: "pending",
-        address: {
+        status: "not_started",
+        utility_bill: {
           verification_status: "not_submitted",
         },
       };
     }
 
-    // Update address information
-    user.kyc.tier2.address = {
-      street: address.street,
-      city: address.city,
-      state: address.state,
-      postal_code: address.postal_code,
-      country: address.country || "Nigeria",
+    // Update utility bill information
+    user.kyc.tier2.utility_bill = {
+      document: {
+        url: req.file.path,
+        public_id: req.file.filename,
+        asset_id: req.file.asset_id,
+        original_name: req.file.originalname,
+        size: req.file.size,
+        format: req.file.format,
+      },
+      document_type: document_type,
+      uploaded_at: new Date(),
       verification_status: "pending",
     };
 
@@ -573,7 +595,8 @@ const submitTier2Verification = async (req, res) => {
     await user.save();
 
     res.status(StatusCodes.OK).json({
-      message: "Tier 2 verification submitted successfully",
+      message:
+        "Tier 2 verification submitted successfully. Your utility bill is under review.",
       kyc: user.kyc,
     });
   } catch (error) {
@@ -582,17 +605,28 @@ const submitTier2Verification = async (req, res) => {
 };
 
 /**
- * Submit Tier 3 verification (employment and bank statement)
+ * Submit Tier 3 verification (BVN, bank account, and business verification)
  */
 const submitTier3Verification = async (req, res) => {
-  const { employment, bank_statement } = req.body;
+  const {
+    bvn_number,
+    account_number,
+    bank_code,
+    business_name,
+    business_type,
+    rc_number,
+  } = req.body;
 
-  if (!employment) {
-    throw new BadRequestError("Employment information is required");
+  if (!bvn_number) {
+    throw new BadRequestError("BVN is required");
   }
 
-  if (!bank_statement) {
-    throw new BadRequestError("Bank statement information is required");
+  if (!account_number || !bank_code) {
+    throw new BadRequestError("Bank account number and bank code are required");
+  }
+
+  if (!business_name || !business_type) {
+    throw new BadRequestError("Business information is required");
   }
 
   const user = await User.findById(req.user._id);
@@ -606,46 +640,206 @@ const submitTier3Verification = async (req, res) => {
     throw new BadRequestError("You must complete Tier 2 verification first");
   }
 
+  // Validate BVN format (11 digits)
+  const bvnRegex = /^\d{11}$/;
+  if (!bvnRegex.test(bvn_number)) {
+    throw new BadRequestError("BVN must be exactly 11 digits");
+  }
+
+  // Validate account number format (10 digits)
+  const accountRegex = /^\d{10}$/;
+  if (!accountRegex.test(account_number)) {
+    throw new BadRequestError("Account number must be exactly 10 digits");
+  }
+
+  // Validate business type
+  const validBusinessTypes = ["company", "business", "workplace"];
+  if (!validBusinessTypes.includes(business_type)) {
+    throw new BadRequestError("Invalid business type");
+  }
+
   try {
     // Initialize Tier 3 if it doesn't exist
     if (!user.kyc.tier3) {
       user.kyc.tier3 = {
-        status: "pending",
-        employment: {
-          verification_status: "not_submitted",
-        },
-        bank_statement: {
-          verification_status: "not_submitted",
-        },
+        status: "not_started",
+        bank_account: { verification_status: "not_submitted" },
+        bvn: { verification_status: "not_submitted" },
+        business: { verification_status: "not_submitted" },
       };
     }
 
-    // Update employment information
-    user.kyc.tier3.employment = {
-      employer_name: employment.employer_name,
-      position: employment.position,
-      employment_status: employment.employment_status,
-      work_address: employment.work_address,
-      work_phone: employment.work_phone,
-      verification_status: "pending",
-    };
+    let allVerificationsSuccessful = true;
+    const verificationResults = {};
 
-    // Update bank statement information
-    user.kyc.tier3.bank_statement = {
-      bank_name: bank_statement.bank_name,
-      account_number: bank_statement.account_number.slice(-4), // Store only last 4 digits
-      statement_document: bank_statement.document,
-      verification_status: "pending",
-    };
+    // 1. Verify BVN using YouVerify
+    try {
+      const bvnVerificationResponse = await youverify.verifyBVN(
+        bvn_number,
+        user.first_name,
+        user.last_name
+      );
+      console.log("bvnVerificationResponse", bvnVerificationResponse);
+      if (
+        bvnVerificationResponse.success &&
+        bvnVerificationResponse.data.status === "found"
+      ) {
+        user.kyc.tier3.bvn = {
+          bvn_number: bvn_number,
+          verification_status: "verified",
+          verification_data: {
+            verification_id: bvnVerificationResponse.data.id,
+            status: bvnVerificationResponse.data.status,
+            first_name: bvnVerificationResponse.data.firstName,
+            middle_name: bvnVerificationResponse.data.middleName,
+            last_name: bvnVerificationResponse.data.lastName,
+            date_of_birth: bvnVerificationResponse.data.dateOfBirth,
+            phone_number: bvnVerificationResponse.data.phoneNumber,
+            registration_date: bvnVerificationResponse.data.registrationDate,
+            enrollment_bank: bvnVerificationResponse.data.enrollmentBank,
+            enrollment_branch: bvnVerificationResponse.data.enrollmentBranch,
+            image: bvnVerificationResponse.data.image,
+            verification_response: bvnVerificationResponse.data,
+            verified_at: new Date(),
+          },
+        };
+        verificationResults.bvn = "verified";
+      } else {
+        throw new Error("BVN verification failed");
+      }
+    } catch (error) {
+      console.error("BVN verification error:", error);
+      user.kyc.tier3.bvn = {
+        bvn_number: bvn_number,
+        verification_status: "rejected",
+      };
+      verificationResults.bvn = "failed";
+      allVerificationsSuccessful = false;
+    }
+
+    // 2. Verify Bank Account using YouVerify
+    try {
+      const bankVerificationResponse = await youverify.verifyBankAccount(
+        account_number,
+        bank_code
+      );
+
+      if (
+        bankVerificationResponse.success &&
+        bankVerificationResponse.data.status === "found"
+      ) {
+        // Handle premium bank account verification response structure
+        const bankDetails = bankVerificationResponse.data.bankDetails || {};
+        user.kyc.tier3.bank_account = {
+          account_number: account_number,
+          bank_code: bank_code,
+          bank_name:
+            bankDetails.bankName || bankVerificationResponse.data.bankName,
+          account_name:
+            bankDetails.accountName ||
+            bankVerificationResponse.data.accountName,
+          verification_status: "verified",
+          verification_data: {
+            verification_id: bankVerificationResponse.data.id,
+            status: bankVerificationResponse.data.status,
+            verification_response: bankVerificationResponse.data,
+            verified_at: new Date(),
+          },
+        };
+        verificationResults.bank_account = "verified";
+      } else {
+        throw new Error("Bank account verification failed");
+      }
+    } catch (error) {
+      console.error("Bank account verification error:", error);
+      user.kyc.tier3.bank_account = {
+        account_number: account_number,
+        bank_code: bank_code,
+        verification_status: "rejected",
+      };
+      verificationResults.bank_account = "failed";
+      allVerificationsSuccessful = false;
+    }
+
+    // 3. Verify Business using YouVerify (if RC number is provided)
+    if (rc_number && business_type === "company") {
+      try {
+        const businessVerificationResponse = await youverify.verifyBusiness(
+          rc_number,
+          business_name
+        );
+
+        if (
+          businessVerificationResponse.success &&
+          businessVerificationResponse.data.status === "found"
+        ) {
+          // Handle global business verification response structure
+          const businessData = businessVerificationResponse.data;
+          user.kyc.tier3.business = {
+            business_name: business_name,
+            business_type: business_type,
+            rc_number: rc_number,
+            verification_status: "verified",
+            verification_data: {
+              verification_id: businessData.id,
+              status: businessData.status,
+              company_name: businessData.name || businessData.companyName,
+              registration_number: businessData.registrationNumber,
+              company_type:
+                businessData.typeOfEntity || businessData.companyType,
+              registration_date: businessData.registrationDate,
+              company_status: businessData.companyStatus,
+              address: businessData.address,
+              directors: businessData.keyPersonnel || businessData.directors,
+              verification_response: businessData,
+              verified_at: new Date(),
+            },
+          };
+          verificationResults.business = "verified";
+        } else {
+          throw new Error("Business verification failed");
+        }
+      } catch (error) {
+        console.error("Business verification error:", error);
+        user.kyc.tier3.business = {
+          business_name: business_name,
+          business_type: business_type,
+          rc_number: rc_number,
+          verification_status: "rejected",
+        };
+        verificationResults.business = "failed";
+        allVerificationsSuccessful = false;
+      }
+    } else {
+      // For non-company business types, mark as verified without YouVerify check
+      user.kyc.tier3.business = {
+        business_name: business_name,
+        business_type: business_type,
+        rc_number: rc_number || null,
+        verification_status: "verified",
+        verification_data: {
+          verified_at: new Date(),
+        },
+      };
+      verificationResults.business = "verified";
+    }
 
     // Update overall Tier 3 status
-    user.kyc.tier3.status = "pending";
+    if (allVerificationsSuccessful) {
+      user.kyc.tier3.status = "verified";
+      user.kyc.tier3.completed_at = new Date();
+    } else {
+      user.kyc.tier3.status = "rejected";
+    }
 
     await user.save();
 
     res.status(StatusCodes.OK).json({
-      message: "Tier 3 verification submitted successfully",
+      message: allVerificationsSuccessful
+        ? "Tier 3 verification completed successfully"
+        : "Tier 3 verification completed with some failures",
       kyc: user.kyc,
+      verification_results: verificationResults,
     });
   } catch (error) {
     throw new BadRequestError(error.message || "Tier 3 verification failed");

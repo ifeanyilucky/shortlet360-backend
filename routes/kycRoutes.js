@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const authenticateUser = require("../middlewares/authentication");
 const kycController = require("../controllers/kycController");
+const { single } = require("../middlewares/upload");
 
 // Get KYC status
 router.get("/status", authenticateUser, kycController.getKycStatus);
@@ -29,14 +30,15 @@ router.post(
 );
 router.get("/verify-email/:token", kycController.verifyEmail);
 
-// Tier 2 verification (address and identity)
+// Tier 2 verification (utility bill upload)
 router.post(
   "/tier2/submit",
   authenticateUser,
+  ...single("utility_bill"),
   kycController.submitTier2Verification
 );
 
-// Tier 3 verification (employment and bank statement)
+// Tier 3 verification (BVN, bank account, and business verification)
 router.post(
   "/tier3/submit",
   authenticateUser,

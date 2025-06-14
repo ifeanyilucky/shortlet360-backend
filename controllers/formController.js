@@ -438,6 +438,7 @@ const submitInspectionRequest = async (req, res) => {
       preferredDate1,
       preferredDate2,
       preferredDate3,
+      owner_email,
     } = req.body;
 
     // Validate required fields
@@ -447,7 +448,8 @@ const submitInspectionRequest = async (req, res) => {
       !propertyId ||
       !preferredDate1 ||
       !preferredDate2 ||
-      !preferredDate3
+      !preferredDate3 ||
+      !owner_email
     ) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
@@ -466,6 +468,7 @@ const submitInspectionRequest = async (req, res) => {
           preferredDate1,
           preferredDate2,
           preferredDate3,
+          owner_email,
           date: new Date().toLocaleDateString(),
         },
         (err, result) => {
@@ -479,9 +482,10 @@ const submitInspectionRequest = async (req, res) => {
       );
     });
 
-    // Send email notification
+    // Send email notification to owner with support as CC
     await sendEmail({
-      to: "support@aplet360.com",
+      to: owner_email,
+      cc: "support@aplet360.com",
       subject: `New Property Inspection Request - ${propertyId}`,
       text: `New property inspection request from ${fullName}. Property ID: ${propertyId}. Contact: ${phoneNumber}. Preferred dates: ${preferredDate1}, ${preferredDate2}, ${preferredDate3}`,
       html: emailHtml,

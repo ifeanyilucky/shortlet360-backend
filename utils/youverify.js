@@ -126,7 +126,159 @@ const verifyNIN = async (
   }
 };
 
+/**
+ * Verify BVN using YouVerify API
+ * @param {string} bvn - Bank Verification Number
+ * @param {string} firstName - First name (optional)
+ * @param {string} lastName - Last name (optional)
+ * @param {string} dateOfBirth - Date of birth in YYYY-MM-DD format (optional)
+ * @returns {Promise<Object>} - Verification result
+ */
+const verifyBVN = async (
+  bvn,
+  firstName = null,
+  lastName = null,
+  dateOfBirth = null
+) => {
+  try {
+    if (!bvn) throw new BadRequestError("BVN is required");
+
+    // Prepare request payload
+    const payload = {
+      id: bvn,
+      isSubjectConsent: true,
+    };
+
+    // Add validation data if provided
+    if (firstName || lastName || dateOfBirth) {
+      payload.validations = {
+        data: {},
+      };
+
+      if (firstName) payload.validations.data.firstName = firstName;
+      if (lastName) payload.validations.data.lastName = lastName;
+      if (dateOfBirth) payload.validations.data.dateOfBirth = dateOfBirth;
+    }
+
+    const response = await YouVerify.post("/identity/ng/bvn", payload, {
+      headers: {
+        token: process.env.YOUVERIFY_API_TOKEN,
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "BVN verification error:",
+      error.response?.data || error.message
+    );
+    if (error.response?.data) {
+      throw new BadRequestError(
+        error.response.data.message || "BVN verification failed"
+      );
+    }
+    throw new BadRequestError("BVN verification service unavailable");
+  }
+};
+
+/**
+ * Verify bank account using YouVerify API (Premium Bank Account Verification)
+ * @param {string} accountNumber - Bank account number
+ * @param {string} bankCode - Bank code
+ * @returns {Promise<Object>} - Verification result
+ */
+const verifyBankAccount = async (accountNumber, bankCode) => {
+  try {
+    if (!accountNumber || !bankCode) {
+      throw new BadRequestError("Account number and bank code are required");
+    }
+
+    const payload = {
+      accountNumber: accountNumber,
+      bankCode: bankCode,
+      isSubjectConsent: true,
+    };
+
+    const response = await YouVerify.post(
+      "/identity/ng/premium-bav/resolve",
+      payload,
+      {
+        headers: {
+          token: process.env.YOUVERIFY_API_TOKEN,
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Bank account verification error:",
+      error.response?.data || error.message
+    );
+    if (error.response?.data) {
+      throw new BadRequestError(
+        error.response.data.message || "Bank account verification failed"
+      );
+    }
+    throw new BadRequestError("Bank account verification service unavailable");
+  }
+};
+
+/**
+ * Verify business/company using YouVerify API (Global Business Verification)
+ * @param {string} rcNumber - Registration certificate number (with appropriate prefix: RC, BN, IT, LP, LLP)
+ * @param {string} companyName - Company name (optional, only for Nigerian companies)
+ * @param {string} countryCode - Country code (default: NG for Nigeria)
+ * @returns {Promise<Object>} - Verification result
+ */
+const verifyBusiness = async (
+  rcNumber,
+  companyName = null,
+  countryCode = "NG"
+) => {
+  try {
+    if (!rcNumber) throw new BadRequestError("Registration number is required");
+
+    const payload = {
+      registrationNumber: rcNumber,
+      countryCode: countryCode,
+      isConsent: true,
+    };
+
+    // Add company name for Nigerian companies only
+    if (companyName && countryCode === "NG") {
+      payload.registrationName = companyName;
+    }
+
+    const response = await YouVerify.post(
+      "/verifications/global/company-advance-check",
+      payload,
+      {
+        headers: {
+          token: process.env.YOUVERIFY_API_TOKEN,
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Business verification error:",
+      error.response?.data || error.message
+    );
+    if (error.response?.data) {
+      throw new BadRequestError(
+        error.response.data.message || "Business verification failed"
+      );
+    }
+    throw new BadRequestError("Business verification service unavailable");
+  }
+};
+
 module.exports = {
   verifyPhoneNumber,
   verifyNIN,
+  verifyBVN,
+  verifyBankAccount,
+  verifyBusiness,
 };

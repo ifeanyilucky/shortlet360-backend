@@ -467,9 +467,9 @@ const updateTier1Verification = async (req, res) => {
 
 const updateTier2Verification = async (req, res) => {
   const { userId } = req.params;
-  const { status, addressStatus, identityStatus } = req.body;
+  const { status, admin_notes } = req.body;
 
-  if (status && !["verified", "rejected"].includes(status)) {
+  if (!["verified", "rejected"].includes(status)) {
     throw new BadRequestError("Status must be either 'verified' or 'rejected'");
   }
 
@@ -479,26 +479,30 @@ const updateTier2Verification = async (req, res) => {
     throw new NotFoundError(`No user with id ${userId}`);
   }
 
-  if (status) {
-    user.kyc.tier2.status = status;
-
-    if (status === "verified") {
-      user.kyc.tier2.completed_at = new Date();
-    }
+  if (!user.kyc?.tier2?.utility_bill) {
+    throw new BadRequestError("No utility bill found for this user");
   }
 
-  if (addressStatus) {
-    user.kyc.tier2.address.verification_status = addressStatus;
+  // Update utility bill verification status
+  user.kyc.tier2.utility_bill.verification_status = status;
+  user.kyc.tier2.utility_bill.reviewed_by = req.user._id;
+  user.kyc.tier2.utility_bill.reviewed_at = new Date();
+
+  if (admin_notes) {
+    user.kyc.tier2.utility_bill.admin_notes = admin_notes;
   }
 
-  if (identityStatus) {
-    user.kyc.tier2.identity.verification_status = identityStatus;
+  // Update overall Tier 2 status
+  user.kyc.tier2.status = status;
+
+  if (status === "verified") {
+    user.kyc.tier2.completed_at = new Date();
   }
 
   await user.save();
 
   res.status(StatusCodes.OK).json({
-    message: `Tier 2 verification updated`,
+    message: `Tier 2 verification ${status}`,
     user: {
       _id: user._id,
       first_name: user.first_name,

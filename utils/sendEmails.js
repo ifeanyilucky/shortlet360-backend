@@ -24,20 +24,28 @@ const transporter = nodemailer.createTransport({
  * Send email using the configured transporter
  * @param {Object} options - Email options
  * @param {string} options.to - Recipient email address
+ * @param {string} options.cc - CC email address (optional)
  * @param {string} options.subject - Email subject
  * @param {string} options.text - Plain text version of email
  * @param {string} options.html - HTML version of email
  * @returns {Promise} - Resolves with info about sent email
  */
-const sendEmail = async ({ to, subject, text, html }) => {
+const sendEmail = async ({ to, cc, subject, text, html }) => {
   try {
-    const info = await transporter.sendMail({
+    const mailOptions = {
       from: `"Aplet360 Support" <${process.env.SMTP_USER}>`,
       to,
       subject,
       text,
       html,
-    });
+    };
+
+    // Only add CC if provided
+    if (cc) {
+      mailOptions.cc = cc;
+    }
+
+    const info = await transporter.sendMail(mailOptions);
 
     console.log("Message sent: %s", info.messageId);
     return info;

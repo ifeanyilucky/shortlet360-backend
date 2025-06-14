@@ -58,16 +58,15 @@ const userSchema = new mongoose.Schema(
     // Password reset fields
     resetPasswordToken: String,
     resetPasswordExpire: Date,
-    // KYC Verification Fields
+    // KYC Verification Fields - Updated Architecture
     kyc: {
-      // Tier 1: Phone, Email and NIN Verification
+      // Tier 1: Phone and NIN Verification (Automated via YouVerify)
       tier1: {
         status: {
           type: String,
-          enum: ["pending", "verified", "rejected"],
-          default: "pending",
+          enum: ["pending", "verified", "rejected", "not_started"],
+          default: "not_started",
         },
-        email_verified: { type: Boolean, default: false },
         phone_verified: { type: Boolean, default: false },
         nin_verified: { type: Boolean, default: false },
         nin: String,
@@ -100,64 +99,115 @@ const userSchema = new mongoose.Schema(
         },
         completed_at: Date,
       },
-      // Tier 2: Address and Identity Verification
+      // Tier 2: Utility Bill Verification (Manual Admin Approval)
       tier2: {
         status: {
           type: String,
           enum: ["pending", "verified", "rejected", "not_started"],
           default: "not_started",
         },
-        address: {
-          street: String,
-          city: String,
-          state: String,
-          postal_code: String,
-          country: String,
+        utility_bill: {
+          document: Object, // Store uploaded utility bill document info
+          document_type: {
+            type: String,
+            enum: [
+              "electricity",
+              "water",
+              "gas",
+              "internet",
+              "cable_tv",
+              "phone",
+            ],
+          },
+          uploaded_at: Date,
           verification_status: {
             type: String,
             enum: ["pending", "verified", "rejected", "not_submitted"],
             default: "not_submitted",
           },
-        },
-        identity: {
-          nin: String,
-          nin_verification_id: String, // ID from Prembly verification
-          verification_status: {
-            type: String,
-            enum: ["pending", "verified", "rejected", "not_submitted"],
-            default: "not_submitted",
+          admin_notes: String, // Admin can add notes during review
+          reviewed_by: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
           },
-          verification_data: Object, // Store verification response
+          reviewed_at: Date,
         },
         completed_at: Date,
       },
-      // Tier 3: Work/Business and Bank Statement Verification (For monthly rent users)
+      // Tier 3: Bank Statement, BVN, and Business Verification (Automated via YouVerify)
       tier3: {
         status: {
           type: String,
           enum: ["pending", "verified", "rejected", "not_started"],
           default: "not_started",
         },
-        employment: {
-          employer_name: String,
-          position: String,
-          employment_status: String, // full-time, part-time, self-employed, etc.
-          work_address: String,
-          work_phone: String,
+        // Bank Account Verification
+        bank_account: {
+          account_number: String,
+          bank_code: String,
+          bank_name: String,
+          account_name: String,
           verification_status: {
             type: String,
             enum: ["pending", "verified", "rejected", "not_submitted"],
             default: "not_submitted",
           },
+          verification_data: {
+            verification_id: String,
+            status: String,
+            verification_response: Object, // Full YouVerify response
+            verified_at: Date,
+          },
         },
-        bank_statement: {
-          bank_name: String,
-          account_number: String, // Last 4 digits only for security
-          statement_document: Object, // Store document info
+        // BVN Verification
+        bvn: {
+          bvn_number: String,
           verification_status: {
             type: String,
             enum: ["pending", "verified", "rejected", "not_submitted"],
             default: "not_submitted",
+          },
+          verification_data: {
+            verification_id: String,
+            status: String,
+            first_name: String,
+            middle_name: String,
+            last_name: String,
+            date_of_birth: String,
+            phone_number: String,
+            registration_date: String,
+            enrollment_bank: String,
+            enrollment_branch: String,
+            image: String, // Base64 image from YouVerify
+            verification_response: Object, // Full YouVerify response
+            verified_at: Date,
+          },
+        },
+        // Business/Workplace Verification
+        business: {
+          business_name: String,
+          business_type: {
+            type: String,
+            enum: ["company", "business", "workplace"],
+          },
+          rc_number: String, // Registration certificate number
+          verification_status: {
+            type: String,
+            enum: ["pending", "verified", "rejected", "not_submitted"],
+            default: "not_submitted",
+          },
+          verification_data: {
+            verification_id: String,
+            status: String,
+            company_name: String,
+            registration_number: String,
+            company_type: String,
+            registration_date: String,
+            company_status: String,
+            address: Object,
+            directors: Array,
+            verification_response: Object, // Full YouVerify response
+            verified_at: Date,
           },
         },
         completed_at: Date,

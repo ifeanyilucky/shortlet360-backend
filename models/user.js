@@ -30,6 +30,20 @@ const userSchema = new mongoose.Schema(
       type: Object,
       default: null,
     },
+    // Discount code usage tracking
+    discount_codes_used: [
+      {
+        code: String,
+        discount_amount: Number,
+        original_amount: Number,
+        final_amount: Number,
+        used_at: {
+          type: Date,
+          default: Date.now,
+        },
+        applicable_to: String, // 'registration_fee', 'booking', etc.
+      },
+    ],
     host_details: {
       id_document: String,
       verification_status: {

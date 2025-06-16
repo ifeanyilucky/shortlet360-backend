@@ -17,4 +17,7 @@ router.post("/dispute-resolution", formController.submitDisputeResolutionForm);
 // Inspection request form submission
 router.post("/inspection-request", formController.submitInspectionRequest);
 
+// Property management form submission
+router.post("/property-management", formController.submitPropertyManagementForm);
+
 module.exports = router;

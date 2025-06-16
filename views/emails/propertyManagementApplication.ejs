@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Management Application</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #1f2937;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #f9fafb;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+        }
+        .info-section {
+            background-color: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        .label {
+            font-weight: bold;
+            color: #374151;
+            width: 40%;
+        }
+        .value {
+            color: #6b7280;
+            width: 60%;
+        }
+        .highlight {
+            background-color: #fef3c7;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #f59e0b;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .status-badge {
+            background-color: #10b981;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏢 Property Management Application</h1>
+        <p>New application received on <%= date %></p>
+    </div>
+
+    <div class="content">
+        <h2>Application Details</h2>
+        
+        <div class="info-section">
+            <h3>👤 Personal Information</h3>
+            <div class="info-row">
+                <span class="label">Full Name:</span>
+                <span class="value"><%= fullName %></span>
+            </div>
+            <div class="info-row">
+                <span class="label">Email:</span>
+                <span class="value"><%= email %></span>
+            </div>
+            <div class="info-row">
+                <span class="label">Phone Number:</span>
+                <span class="value"><%= phoneNumber %></span>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>🏠 Property Information</h3>
+            <div class="info-row">
+                <span class="label">Property Type:</span>
+                <span class="value"><%= propertyType %></span>
+            </div>
+            <div class="info-row">
+                <span class="label">Number of Properties:</span>
+                <span class="value"><%= numberOfProperties %></span>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>📍 Property Address</h3>
+            <div class="info-row">
+                <span class="label">Street Address:</span>
+                <span class="value"><%= address.street %></span>
+            </div>
+            <div class="info-row">
+                <span class="label">Area:</span>
+                <span class="value"><%= address.area %></span>
+            </div>
+            <div class="info-row">
+                <span class="label">Local Government:</span>
+                <span class="value"><%= address.localGovernment %></span>
+            </div>
+            <div class="info-row">
+                <span class="label">State:</span>
+                <span class="value"><%= address.state %></span>
+            </div>
+        </div>
+
+        <div class="highlight">
+            <h3>💰 Management Fee Agreement</h3>
+            <p><strong>Status:</strong> <span class="status-badge">AGREED</span></p>
+            <p>The applicant has agreed to the 5% management fee on all rental income generated from their properties under Aplet360's management.</p>
+        </div>
+
+        <div class="info-section">
+            <h3>📋 Next Steps</h3>
+            <ol>
+                <li><strong>Property Assessment:</strong> Schedule a property inspection and valuation</li>
+                <li><strong>Documentation:</strong> Prepare management agreement and legal documents</li>
+                <li><strong>Market Analysis:</strong> Conduct rental market analysis for optimal pricing</li>
+                <li><strong>Onboarding:</strong> Set up property profile and marketing materials</li>
+                <li><strong>Tenant Acquisition:</strong> Begin marketing and tenant screening process</li>
+            </ol>
+        </div>
+
+        <div class="highlight">
+            <h3>⏰ Response Timeline</h3>
+            <p>Please contact the applicant within <strong>24-48 hours</strong> to schedule the initial consultation and property assessment.</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>This application was submitted through the Aplet360 Property Management portal.</p>
+        <p>For questions, contact: property-management@aplet360.com</p>
+        <p>&copy; <%= new Date().getFullYear() %> Aplet360. All rights reserved.</p>
+    </div>
+</body>
+</html>

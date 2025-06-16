@@ -410,6 +410,31 @@ const getPendingKycVerifications = async (req, res) => {
     },
   });
 };
+const getAllKycVerifications = async (req, res) => {
+  const { tier, page = 1, limit = 10 } = req.query;
+
+  const query = {};
+
+  const skip = (page - 1) * limit;
+
+  const users = await User.find(query)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(parseInt(limit))
+    .select("first_name last_name email role short_id kyc");
+
+  const totalUsers = await User.countDocuments(query);
+
+  res.status(StatusCodes.OK).json({
+    users,
+    pagination: {
+      total: totalUsers,
+      page: parseInt(page),
+      pages: Math.ceil(totalUsers / limit),
+      limit: parseInt(limit),
+    },
+  });
+};
 
 const updateTier1Verification = async (req, res) => {
   const { userId } = req.params;
@@ -581,4 +606,5 @@ module.exports = {
   updateTier1Verification,
   updateTier2Verification,
   updateTier3Verification,
+  getAllKycVerifications,
 };

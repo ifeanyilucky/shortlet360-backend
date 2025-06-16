@@ -12,6 +12,7 @@ const adminAuthRoutes = require("./adminAuthRoutes");
 const formRoutes = require("./formRoutes");
 const referralRoutes = require("./referralRoutes");
 const blogRoutes = require("./blogRoutes");
+const discountCodeRoutes = require("./discountCodeRoutes");
 
 router.use("/auth", authRouter);
 router.use("/auth/admin", adminAuthRoutes);
@@ -24,5 +25,6 @@ router.use("/admin", adminRoutes);
 router.use("/forms", formRoutes);
 router.use("/referral", referralRoutes);
 router.use("/blog", blogRoutes);
+router.use("/discount-codes", discountCodeRoutes);
 
 module.exports = router;

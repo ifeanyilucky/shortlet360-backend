@@ -505,10 +505,155 @@ const submitInspectionRequest = async (req, res) => {
   }
 };
 
+/**
+ * Submit Property Management form
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+const submitPropertyManagementForm = async (req, res) => {
+  try {
+    const {
+      fullName,
+      email,
+      phoneNumber,
+      propertyType,
+      numberOfProperties,
+      address,
+      agreeToFee,
+    } = req.body;
+
+    // Validate required fields
+    if (
+      !fullName ||
+      !email ||
+      !phoneNumber ||
+      !propertyType ||
+      !numberOfProperties ||
+      !agreeToFee
+    ) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Please provide all required fields",
+      });
+    }
+
+    // Validate address fields
+    if (
+      !address ||
+      !address.street ||
+      !address.state ||
+      !address.localGovernment ||
+      !address.area
+    ) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Please provide complete address information",
+      });
+    }
+
+    // Validate agreement to fee
+    if (!agreeToFee) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "You must agree to the 5% management fee",
+      });
+    }
+
+    // Validate number of properties
+    if (numberOfProperties < 1) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Number of properties must be at least 1",
+      });
+    }
+
+    // Render email template
+    const emailHtml = await new Promise((resolve, reject) => {
+      ejs.renderFile(
+        path.join(__dirname, "../views/emails/propertyManagementApplication.ejs"),
+        {
+          fullName,
+          email,
+          phoneNumber,
+          propertyType,
+          numberOfProperties,
+          address,
+          agreeToFee,
+          date: new Date().toLocaleDateString(),
+        },
+        (err, result) => {
+          if (err) {
+            console.error("Error rendering email template:", err);
+            reject(err);
+          } else {
+            resolve(result);
+          }
+        }
+      );
+    });
+
+    // Send email notification to property management team
+    await sendEmail({
+      to: "property-management@aplet360.com",
+      cc: "support@aplet360.com",
+      subject: `New Property Management Application: ${propertyType} - ${numberOfProperties} Properties`,
+      text: `New property management application from ${fullName}. Property Type: ${propertyType}. Number of Properties: ${numberOfProperties}. Contact: ${email}, ${phoneNumber}. Address: ${address.street}, ${address.area}, ${address.localGovernment}, ${address.state}. Agreed to 5% fee: ${agreeToFee ? 'Yes' : 'No'}`,
+      html: emailHtml,
+    });
+
+    // Send confirmation email to applicant
+    await sendEmail({
+      to: email,
+      subject: "Property Management Application Received - Aplet360",
+      text: `Dear ${fullName}, thank you for your property management application. We have received your application for ${numberOfProperties} ${propertyType.toLowerCase()}(s) and will contact you within 24-48 hours to discuss the next steps.`,
+      html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+               <h2 style="color: #1f2937;">Property Management Application Received</h2>
+               <p>Dear ${fullName},</p>
+               <p>Thank you for your interest in Aplet360's property management services. We have successfully received your application with the following details:</p>
+               <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                 <h3 style="color: #374151; margin-top: 0;">Application Summary</h3>
+                 <p><strong>Property Type:</strong> ${propertyType}</p>
+                 <p><strong>Number of Properties:</strong> ${numberOfProperties}</p>
+                 <p><strong>Location:</strong> ${address.area}, ${address.localGovernment}, ${address.state}</p>
+                 <p><strong>Management Fee Agreement:</strong> 5% of rental income</p>
+               </div>
+               <p>Our property management team will review your application and contact you within 24-48 hours to discuss:</p>
+               <ul>
+                 <li>Property assessment and valuation</li>
+                 <li>Management agreement terms</li>
+                 <li>Onboarding process</li>
+                 <li>Marketing and tenant acquisition strategy</li>
+               </ul>
+               <p>If you have any immediate questions, please don't hesitate to contact us at property-management@aplet360.com or call our support line.</p>
+               <p>Best regards,<br>Aplet360 Property Management Team</p>
+             </div>`,
+    });
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Property management application submitted successfully",
+      data: {
+        applicationId: `PM-${Date.now()}`,
+        propertyType,
+        numberOfProperties,
+        estimatedResponse: "24-48 hours",
+      },
+    });
+  } catch (error) {
+    console.error("Error submitting property management application:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Failed to submit property management application",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   submitHomeServiceForm,
   submitBecomeArtisanForm,
   submitContactForm,
   submitDisputeResolutionForm,
   submitInspectionRequest,
+  submitPropertyManagementForm,
 };

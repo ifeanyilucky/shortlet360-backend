@@ -1,4 +1,5 @@
 const User = require("../models/user");
+const DiscountCode = require("../models/discountCode");
 const crypto = require("crypto");
 const { StatusCodes } = require("http-status-codes");
 const {
@@ -351,22 +352,138 @@ const verifyEmail = async (req, res) => {
   });
 };
 
+// Validate discount code
+const validateDiscountCode = async (req, res) => {
+  const { code, amount } = req.body;
+
+  if (!code) {
+    throw new BadRequestError("Discount code is required");
+  }
+
+  if (!amount || amount <= 0) {
+    throw new BadRequestError("Valid amount is required");
+  }
+
+  // Find the discount code
+  const discountCode = await DiscountCode.findOne({
+    code: code.toUpperCase(),
+  });
+
+  if (!discountCode) {
+    throw new BadRequestError("Invalid discount code");
+  }
+
+  // Check if user has already used this discount code
+  const user = await User.findById(req.user._id);
+  const hasUsedCode = user.discount_codes_used.some(
+    (usedCode) => usedCode.code === code.toUpperCase()
+  );
+
+  if (hasUsedCode) {
+    throw new BadRequestError("You have already used this discount code");
+  }
+
+  // Validate the discount code
+  const validation = discountCode.isValid();
+  if (!validation.valid) {
+    throw new BadRequestError(validation.reason);
+  }
+
+  // Check if applicable to registration fee
+  if (discountCode.applicable_to !== "registration_fee" && discountCode.applicable_to !== "all") {
+    throw new BadRequestError("This discount code is not applicable to registration fees");
+  }
+
+  // Calculate discount
+  const discountDetails = discountCode.calculateDiscount(amount);
+
+  res.status(StatusCodes.OK).json({
+    message: "Discount code is valid",
+    discount_code: {
+      code: discountCode.code,
+      description: discountCode.description,
+      discount_type: discountCode.discount_type,
+      discount_value: discountCode.discount_value,
+    },
+    discount_details: discountDetails,
+  });
+};
+
 const completeRegistrationPayment = async (req, res) => {
-  const { payment } = req.body;
+  const { payment, discount_code } = req.body;
 
   if (!payment) {
     throw new BadRequestError("Payment information is required");
   }
 
+  let discountDetails = null;
+  let discountCodeDoc = null;
+
+  // Handle discount code if provided
+  if (discount_code) {
+    // Find the discount code
+    discountCodeDoc = await DiscountCode.findOne({
+      code: discount_code.toUpperCase(),
+    });
+
+    if (!discountCodeDoc) {
+      throw new BadRequestError("Invalid discount code");
+    }
+
+    // Check if user has already used this discount code
+    const user = await User.findById(req.user._id);
+    const hasUsedCode = user.discount_codes_used.some(
+      (usedCode) => usedCode.code === discount_code.toUpperCase()
+    );
+
+    if (hasUsedCode) {
+      throw new BadRequestError("You have already used this discount code");
+    }
+
+    // Validate the discount code
+    const validation = discountCodeDoc.isValid();
+    if (!validation.valid) {
+      throw new BadRequestError(validation.reason);
+    }
+
+    // Check if applicable to registration fee
+    if (discountCodeDoc.applicable_to !== "registration_fee" && discountCodeDoc.applicable_to !== "all") {
+      throw new BadRequestError("This discount code is not applicable to registration fees");
+    }
+
+    // Calculate discount based on the original registration fee (20000)
+    const REGISTRATION_FEE = 20000;
+    discountDetails = discountCodeDoc.calculateDiscount(REGISTRATION_FEE);
+  }
+
+  // Prepare update data
+  const updateData = {
+    registration_payment: payment,
+    registration_payment_status: "paid",
+    is_active: true,
+  };
+
+  // Add discount code usage to user record if discount was applied
+  if (discountDetails && discountCodeDoc) {
+    updateData.$push = {
+      discount_codes_used: {
+        code: discountCodeDoc.code,
+        discount_amount: discountDetails.discount_amount,
+        original_amount: discountDetails.original_amount,
+        final_amount: discountDetails.final_amount,
+        used_at: new Date(),
+        applicable_to: "registration_fee",
+      },
+    };
+
+    // Update discount code usage
+    await discountCodeDoc.applyDiscount(req.user._id, discountDetails);
+  }
+
   // Find and update the user with payment information and activate account
-  // Using findByIdAndUpdate to avoid validation issues with required fields
   const updatedUser = await User.findByIdAndUpdate(
     req.user._id,
-    {
-      registration_payment: payment,
-      registration_payment_status: "paid",
-      is_active: true,
-    },
+    updateData,
     { new: true, runValidators: false }
   );
 
@@ -381,6 +498,12 @@ const completeRegistrationPayment = async (req, res) => {
     message: "Registration payment completed successfully",
     user: updatedUser,
     token,
+    discount_applied: discountDetails ? {
+      code: discountCodeDoc.code,
+      discount_amount: discountDetails.discount_amount,
+      original_amount: discountDetails.original_amount,
+      final_amount: discountDetails.final_amount,
+    } : null,
   });
 };
 
@@ -393,5 +516,6 @@ module.exports = {
   getProfile,
   updateProfile,
   verifyEmail,
+  validateDiscountCode,
   completeRegistrationPayment,
 };

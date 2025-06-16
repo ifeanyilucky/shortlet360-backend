@@ -200,7 +200,7 @@ const verifyBankAccount = async (accountNumber, bankCode) => {
     };
 
     const response = await YouVerify.post(
-      "/identity/ng/premium-bav/resolve",
+      "/identity/ng/bank-account-number/resolve",
       payload,
       {
         headers: {

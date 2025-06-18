@@ -728,7 +728,7 @@ const submitTier3Verification = async (req, res) => {
         bankVerificationResponse.success &&
         bankVerificationResponse.data.status === "found"
       ) {
-        // Handle premium bank account verification response structure
+        // Handle bank account verification response structure according to YouVerify documentation
         const bankDetails = bankVerificationResponse.data.bankDetails || {};
         user.kyc.tier3.bank_account = {
           account_number: account_number,
@@ -741,7 +741,32 @@ const submitTier3Verification = async (req, res) => {
           verification_status: "verified",
           verification_data: {
             verification_id: bankVerificationResponse.data.id,
+            parent_id: bankVerificationResponse.data.parentId,
             status: bankVerificationResponse.data.status,
+            reason: bankVerificationResponse.data.reason,
+            data_validation: bankVerificationResponse.data.dataValidation,
+            selfie_validation: bankVerificationResponse.data.selfieValidation,
+            is_consent: bankVerificationResponse.data.isConsent,
+            id_number: bankVerificationResponse.data.idNumber,
+            business_id: bankVerificationResponse.data.businessId,
+            type: bankVerificationResponse.data.type,
+            requested_at: bankVerificationResponse.data.requestedAt,
+            requested_by_id: bankVerificationResponse.data.requestedById,
+            country: bankVerificationResponse.data.country,
+            created_at: bankVerificationResponse.data.createdAt,
+            last_modified_at: bankVerificationResponse.data.lastModifiedAt,
+            requested_by: bankVerificationResponse.data.requestedBy,
+            bank_details: {
+              account_name:
+                bankDetails.accountName ||
+                bankVerificationResponse.data.accountName,
+              account_number:
+                bankDetails.accountNumber ||
+                bankVerificationResponse.data.accountNumber ||
+                account_number,
+              bank_name:
+                bankDetails.bankName || bankVerificationResponse.data.bankName,
+            },
             verification_response: bankVerificationResponse.data,
             verified_at: new Date(),
           },
@@ -756,6 +781,10 @@ const submitTier3Verification = async (req, res) => {
         account_number: account_number,
         bank_code: bank_code,
         verification_status: "rejected",
+        verification_data: {
+          error_message: error.message,
+          failed_at: new Date(),
+        },
       };
       verificationResults.bank_account = "failed";
       allVerificationsSuccessful = false;

@@ -4,11 +4,26 @@ const { BadRequestError, NotFoundError } = require("../errors");
 
 // Get all discount codes (Admin only)
 const getAllDiscountCodes = async (req, res) => {
-  const { page = 1, limit = 10, is_active } = req.query;
-  
+  const { page = 1, limit = 10, is_active, search, discount_type } = req.query;
+
   const filter = {};
-  if (is_active !== undefined) {
+
+  // Filter by active status
+  if (is_active !== undefined && is_active !== "") {
     filter.is_active = is_active === "true";
+  }
+
+  // Filter by discount type
+  if (discount_type && discount_type !== "") {
+    filter.discount_type = discount_type;
+  }
+
+  // Search filter for code and description
+  if (search && search.trim() !== "") {
+    filter.$or = [
+      { code: { $regex: search.trim(), $options: "i" } },
+      { description: { $regex: search.trim(), $options: "i" } },
+    ];
   }
 
   const discountCodes = await DiscountCode.find(filter)
@@ -21,9 +36,12 @@ const getAllDiscountCodes = async (req, res) => {
 
   res.status(StatusCodes.OK).json({
     discount_codes: discountCodes,
-    total,
-    page: parseInt(page),
-    pages: Math.ceil(total / limit),
+    pagination: {
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / limit),
+      limit: parseInt(limit),
+    },
   });
 };
 
@@ -92,11 +110,10 @@ const updateDiscountCode = async (req, res) => {
   delete updateData.used_by;
   delete updateData.created_by;
 
-  const discountCode = await DiscountCode.findByIdAndUpdate(
-    id,
-    updateData,
-    { new: true, runValidators: true }
-  );
+  const discountCode = await DiscountCode.findByIdAndUpdate(id, updateData, {
+    new: true,
+    runValidators: true,
+  });
 
   if (!discountCode) {
     throw new NotFoundError("Discount code not found");
@@ -137,7 +154,9 @@ const toggleDiscountCodeStatus = async (req, res) => {
   await discountCode.save();
 
   res.status(StatusCodes.OK).json({
-    message: `Discount code ${discountCode.is_active ? "activated" : "deactivated"} successfully`,
+    message: `Discount code ${
+      discountCode.is_active ? "activated" : "deactivated"
+    } successfully`,
     discount_code: discountCode,
   });
 };
@@ -153,7 +172,7 @@ const getDiscountCodeStats = async (req, res) => {
           $sum: { $cond: [{ $eq: ["$is_active", true] }, 1, 0] },
         },
         total_uses: { $sum: "$current_uses" },
-        total_discount_given: {
+        total_discount_amount: {
           $sum: {
             $reduce: {
               input: "$used_by",
@@ -170,12 +189,10 @@ const getDiscountCodeStats = async (req, res) => {
     total_codes: 0,
     active_codes: 0,
     total_uses: 0,
-    total_discount_given: 0,
+    total_discount_amount: 0,
   };
 
-  res.status(StatusCodes.OK).json({
-    stats: result,
-  });
+  res.status(StatusCodes.OK).json(result);
 };
 
 module.exports = {

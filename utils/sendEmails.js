@@ -28,9 +28,10 @@ const transporter = nodemailer.createTransport({
  * @param {string} options.subject - Email subject
  * @param {string} options.text - Plain text version of email
  * @param {string} options.html - HTML version of email
+ * @param {Array} options.attachments - Email attachments (optional)
  * @returns {Promise} - Resolves with info about sent email
  */
-const sendEmail = async ({ to, cc, subject, text, html }) => {
+const sendEmail = async ({ to, cc, subject, text, html, attachments }) => {
   try {
     const mailOptions = {
       from: `"Aplet360 Support" <${process.env.SMTP_USER}>`,
@@ -43,6 +44,11 @@ const sendEmail = async ({ to, cc, subject, text, html }) => {
     // Only add CC if provided
     if (cc) {
       mailOptions.cc = cc;
+    }
+
+    // Only add attachments if provided
+    if (attachments && attachments.length > 0) {
+      mailOptions.attachments = attachments;
     }
 
     const info = await transporter.sendMail(mailOptions);

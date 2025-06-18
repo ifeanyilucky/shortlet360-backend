@@ -31,7 +31,7 @@
     </div>
 
     <div class="booking-info">
-      <h3>Dear {{booking.payment.customer.name}},</h3>
+      <h3>Dear {{booking.guest.first_name}} {{booking.guest.last_name}},</h3>
       <p>Thank you for booking with us. We're looking forward to welcoming you
         as our guest.</p>
     </div>
@@ -50,9 +50,9 @@
           <th>Contact</th>
         </tr>
         <tr>
-          <td>{{booking.payment.customer.name}}</td>
+          <td>{{booking.guest.first_name}} {{booking.guest.last_name}}</td>
           <td>{{booking.guest_count}}</td>
-          <td>{{booking.payment.customer.phone_number}}</td>
+          <td>{{booking.guest.phone_number}}</td>
         </tr>
       </table>
 
@@ -84,7 +84,7 @@
         </tr>
         <tr>
           <td>Transaction Reference</td>
-          <td>{{booking.payment.tx_ref}}</td>
+          <td>{{booking.payment.reference}}</td>
         </tr>
       </table>
     </div>
@@ -102,11 +102,11 @@
       <div class="contact-grid">
         <div>
           <h4 style="color: #004aad; margin-bottom: 10px;">Guest Information</h4>
-          <p style="margin: 5px 0;">Name: {{booking.payment.customer.name}}</p>
-          <p style="margin: 5px 0;">Email:
-            {{booking.payment.customer.email}}</p>
-          <p style="margin: 5px 0;">Phone:
-            {{booking.payment.customer.phone_number}}</p>
+          <p style="margin: 5px 0;">Name:
+            {{booking.guest.first_name}}
+            {{booking.guest.last_name}}</p>
+          <p style="margin: 5px 0;">Email: {{booking.guest.email}}</p>
+          <p style="margin: 5px 0;">Phone: {{booking.guest.phone_number}}</p>
         </div>
         <div>
           <h4 style="color: #004aad; margin-bottom: 10px;">Aplet360 Support</h4>

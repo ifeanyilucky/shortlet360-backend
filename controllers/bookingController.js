@@ -222,28 +222,39 @@ const bookingController = {
 
       await booking.save();
 
-      // Generate PDF receipt
-      // const populatedBooking = await Booking.findById(booking._id)
-      //   .populate("property_id")
-      //   .populate("guest");
+      // Generate PDF receipt and send email to guest
+      try {
+        const populatedBooking = await Booking.findById(booking._id)
+          .populate("property_id")
+          .populate("guest");
 
-      // const pdfBuffer = await generatePDF("receipt", {
-      //   booking: populatedBooking,
-      // });
+        const pdfBuffer = await generatePDF("receipt", {
+          booking: populatedBooking,
+        });
 
-      // // Send email with PDF receipt
-      // await sendEmail({
-      //   to: payment.customer.email,
-      //   subject: "Booking Confirmation - Aplet360",
-      //   text: `Dear ${payment.customer.name},\n\nThank you for your booking. Your booking has been confirmed. Please find the attached receipt for your records.\n\nBest regards,\naplet360 Team`,
-      //   attachments: [
-      //     {
-      //       filename: `booking_receipt_${booking._id}.pdf`,
-      //       content: pdfBuffer,
-      //       contentType: "application/pdf",
-      //     },
-      //   ],
-      // });
+        // Get guest email from the populated booking
+        const guestEmail = populatedBooking.guest.email;
+        const guestName = `${populatedBooking.guest.first_name} ${populatedBooking.guest.last_name}`;
+
+        // Send email with PDF receipt to the guest/renter
+        await sendEmail({
+          to: guestEmail,
+          subject: "Booking Confirmation - Aplet360",
+          text: `Dear ${guestName},\n\nThank you for your booking. Your booking has been confirmed. Please find the attached receipt for your records.\n\nBest regards,\nAplet360 Team`,
+          attachments: [
+            {
+              filename: `booking_receipt_${booking._id}.pdf`,
+              content: pdfBuffer,
+              contentType: "application/pdf",
+            },
+          ],
+        });
+
+        console.log(`Receipt email sent successfully to ${guestEmail}`);
+      } catch (emailError) {
+        console.error("Error sending receipt email:", emailError);
+        // Don't throw error here as booking was successful, just log the email failure
+      }
 
       res.status(201).json({ success: true, data: booking });
     } catch (error) {

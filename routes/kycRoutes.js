@@ -4,6 +4,9 @@ const authenticateUser = require("../middlewares/authentication");
 const kycController = require("../controllers/kycController");
 const { single } = require("../middlewares/upload");
 
+// Get sandbox test data (development/testing only)
+router.get("/sandbox-data", kycController.getSandboxTestData);
+
 // Get KYC status
 router.get("/status", authenticateUser, kycController.getKycStatus);
 

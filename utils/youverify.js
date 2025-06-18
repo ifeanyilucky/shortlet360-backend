@@ -1,9 +1,23 @@
 const axios = require("axios");
 const { BadRequestError } = require("../errors");
+const {
+  getCurrentEnvironment,
+  validateEnvironmentConfig,
+} = require("./youverifyConfig");
 
-// Create YouVerify API client
+// Validate environment configuration on startup
+try {
+  validateEnvironmentConfig();
+} catch (error) {
+  console.error("YouVerify configuration error:", error.message);
+}
+
+// Get current environment configuration
+const currentEnv = getCurrentEnvironment();
+
+// Create YouVerify API client with environment-specific configuration
 const YouVerify = axios.create({
-  baseURL: process.env.YOUVERIFY_BASE_URL || "https://api.youverify.co/v2/api",
+  baseURL: process.env.YOUVERIFY_BASE_URL || `${currentEnv.baseURL}/v2/api`,
   headers: {
     "Content-Type": "application/json",
   },

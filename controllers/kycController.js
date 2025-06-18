@@ -12,6 +12,276 @@ const path = require("path");
 const ejs = require("ejs");
 
 /**
+ * YouVerify Sandbox Test Data Configuration
+ * Organized by KYC Tiers and User Roles
+ *
+ * Environment: Sandbox (https://api.sandbox.youverify.co)
+ *
+ * TIER REQUIREMENTS BY ROLE:
+ * - USER: Tier 1 (Phone + NIN) - Basic verification for platform access
+ * - OWNER: Tier 1 + Tier 2 (Phone + NIN + Utility Bill) - Property listing capability
+ * - ADMIN: No KYC required
+ *
+ * For monthly rent payments, users may need Tier 3 (BVN + Bank + Business)
+ */
+const YOUVERIFY_SANDBOX_DATA = {
+  // TIER 1: Phone Number + NIN Verification
+  tier1: {
+    // Valid test data (will return "found" status)
+    valid: {
+      phone_numbers: [
+        "08000000000", // Primary sandbox phone
+        "08111111111", // Alternative valid phone
+        "08222222222", // Additional valid phone
+        "07000000000", // MTN test number
+        "09000000000", // 9mobile test number
+      ],
+      nins: [
+        "11111111111", // Primary sandbox NIN
+        "22222222222", // Alternative valid NIN
+        "33333333333", // Additional valid NIN
+      ],
+      // Expected response data for valid NIN
+      nin_response_sample: {
+        firstName: "JOHN",
+        middleName: "ADEBAYO",
+        lastName: "DOE",
+        dateOfBirth: "1990-01-01",
+        gender: "Male",
+        mobile: "08000000000",
+        address: "123 Test Street, Lagos, Nigeria",
+        birthState: "Lagos",
+        birthLGA: "Lagos Island",
+        birthCountry: "Nigeria",
+        religion: "Christianity",
+      },
+    },
+    // Invalid test data (will return "not_found" status)
+    invalid: {
+      phone_numbers: [
+        "08000000001", // Invalid phone (not found)
+        "00000000000", // Invalid format
+      ],
+      nins: [
+        "00000000000", // Invalid NIN (not found)
+        "99999999999", // Another invalid NIN
+      ],
+    },
+  },
+
+  // TIER 2: Utility Bill Verification (Manual Review)
+  tier2: {
+    // Document types accepted
+    document_types: [
+      "electricity", // NEPA/PHCN bill
+      "water", // Water corporation bill
+      "gas", // Gas company bill
+      "internet", // Internet service provider bill
+      "cable_tv", // Cable TV subscription
+      "phone", // Phone/telecom bill
+    ],
+    // Note: Tier 2 requires manual document review by admin
+    // No automated verification through YouVerify API
+  },
+
+  // TIER 3: BVN + Bank Account + Business Verification
+  tier3: {
+    // Valid test data
+    valid: {
+      bvns: [
+        "11111111111", // Primary sandbox BVN
+        "22222222222", // Alternative valid BVN
+      ],
+      bank_accounts: [
+        {
+          account_number: "1000000000",
+          bank_code: "058", // GTBank code
+          bank_name: "Guaranty Trust Bank",
+          account_name: "JOHN ADEBAYO DOE",
+        },
+        {
+          account_number: "2000000000",
+          bank_code: "011", // First Bank code
+          bank_name: "First Bank of Nigeria",
+          account_name: "JANE ADEBAYO SMITH",
+        },
+        {
+          account_number: "3000000000",
+          bank_code: "033", // UBA code
+          bank_name: "United Bank for Africa",
+          account_name: "MICHAEL ADEBAYO JOHNSON",
+        },
+      ],
+      businesses: [
+        {
+          rc_number: "RC0000000", // Valid RC number
+          business_name: "Test Company Limited",
+          business_type: "company",
+          country_code: "NG",
+        },
+        {
+          rc_number: "BN0000000", // Valid BN number
+          business_name: "Test Business Enterprise",
+          business_type: "business",
+          country_code: "NG",
+        },
+      ],
+      // Expected BVN response data
+      bvn_response_sample: {
+        firstName: "JOHN",
+        middleName: "ADEBAYO",
+        lastName: "DOE",
+        dateOfBirth: "1990-01-01",
+        phoneNumber: "08000000000",
+        registrationDate: "2010-01-01",
+        enrollmentBank: "058",
+        enrollmentBranch: "Victoria Island",
+      },
+    },
+    // Invalid test data
+    invalid: {
+      bvns: [
+        "00000000000", // Invalid BVN (not found)
+      ],
+      bank_accounts: [
+        {
+          account_number: "1111111111",
+          bank_code: "058",
+          bank_name: "Guaranty Trust Bank",
+        },
+      ],
+      businesses: [
+        {
+          rc_number: "RC11111111", // Invalid RC number
+          business_name: "Invalid Company",
+          business_type: "company",
+        },
+      ],
+    },
+  },
+
+  // ADDITIONAL YOUVERIFY SERVICES (for future implementation)
+  additional_services: {
+    // Driver's License Verification
+    drivers_license: {
+      valid: ["AAA00000AA00"],
+      invalid: ["AAA11111AA11"],
+    },
+    // International Passport Verification
+    passport: {
+      valid: ["A11111111"],
+      invalid: ["A00000000"],
+    },
+    // Permanent Voter's Card (PVC)
+    pvc: {
+      valid: ["00A0A0A000000000000"],
+      invalid: ["11A1A1A111111111111"],
+    },
+    // Virtual NIN (vNIN)
+    vnin: {
+      valid: ["YV111111111111FY"],
+      invalid: ["YV000000000000FY"],
+    },
+    // Tax Identification Number (TIN)
+    tin: {
+      valid: ["00000000-0000"],
+      invalid: ["11111111-1111"],
+    },
+  },
+
+  // ROLE-BASED KYC REQUIREMENTS
+  role_requirements: {
+    user: {
+      required_tiers: ["tier1"],
+      description: "Basic verification for platform access",
+      verification_flow: [
+        "Email verification",
+        "Phone number verification",
+        "NIN verification",
+      ],
+    },
+    owner: {
+      required_tiers: ["tier1", "tier2"],
+      description: "Enhanced verification for property listing",
+      verification_flow: [
+        "Email verification",
+        "Phone number verification",
+        "NIN verification",
+        "Utility bill upload and review",
+      ],
+    },
+    admin: {
+      required_tiers: [],
+      description: "No KYC verification required",
+      verification_flow: [],
+    },
+  },
+
+  // TESTING SCENARIOS
+  test_scenarios: {
+    successful_tier1: {
+      phone_number: "08000000000",
+      nin: "11111111111",
+      expected_result: "verified",
+    },
+    failed_tier1_phone: {
+      phone_number: "08000000001",
+      nin: "11111111111",
+      expected_result: "phone_verification_failed",
+    },
+    failed_tier1_nin: {
+      phone_number: "08000000000",
+      nin: "00000000000",
+      expected_result: "nin_verification_failed",
+    },
+    successful_tier3: {
+      bvn: "11111111111",
+      account_number: "1000000000",
+      bank_code: "058",
+      business_name: "Test Company Limited",
+      rc_number: "RC0000000",
+      expected_result: "verified",
+    },
+    failed_tier3_bvn: {
+      bvn: "00000000000",
+      account_number: "1000000000",
+      bank_code: "058",
+      expected_result: "bvn_verification_failed",
+    },
+    failed_tier3_bank: {
+      bvn: "11111111111",
+      account_number: "1111111111",
+      bank_code: "058",
+      expected_result: "bank_verification_failed",
+    },
+  },
+};
+
+/**
+ * Get sandbox test data for development and testing
+ */
+const getSandboxTestData = async (req, res) => {
+  // Only allow in development/sandbox environment
+  if (process.env.NODE_ENV === "production") {
+    throw new BadRequestError("Sandbox data not available in production");
+  }
+
+  res.status(StatusCodes.OK).json({
+    message: "YouVerify Sandbox Test Data",
+    environment: "sandbox",
+    base_url: "https://api.sandbox.youverify.co",
+    data: YOUVERIFY_SANDBOX_DATA,
+    usage_notes: [
+      "Use valid test data for successful verification scenarios",
+      "Use invalid test data for failure testing scenarios",
+      "Tier 2 requires manual document review by admin",
+      "All test data only works in sandbox environment",
+      "Switch to production data when going live",
+    ],
+  });
+};
+
+/**
  * Get KYC status for the current user
  */
 const getKycStatus = async (req, res) => {
@@ -797,7 +1067,7 @@ const submitTier3Verification = async (req, res) => {
           rc_number,
           business_name
         );
-
+        console.log("businessVerification", businessVerificationResponse);
         if (
           businessVerificationResponse.success &&
           businessVerificationResponse.data.status === "found"
@@ -876,6 +1146,7 @@ const submitTier3Verification = async (req, res) => {
 };
 
 module.exports = {
+  getSandboxTestData,
   getKycStatus,
   initiateTier1Verification,
   initiatePhoneVerification,

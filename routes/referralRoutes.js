@@ -28,6 +28,7 @@ router.get("/admin/test", (req, res) => {
 
 // Admin referral routes - require both auth and admin authentication
 router.get("/admin/all", auth, adminAuth, referralController.getAllReferrals);
+router.get("/admin/:id", auth, adminAuth, referralController.getReferralById);
 router.get(
   "/admin/analytics",
   auth,

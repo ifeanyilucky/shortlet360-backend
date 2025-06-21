@@ -2,6 +2,14 @@ const { StatusCodes } = require("http-status-codes");
 const { sendEmail } = require("../utils/sendEmails");
 const ejs = require("ejs");
 const path = require("path");
+const {
+  HomeService,
+  ArtisanApplication,
+  ContactForm,
+  DisputeResolution,
+  InspectionRequest,
+  PropertyManagement,
+} = require("../models/formSubmission");
 
 /**
  * Submit Home Service form
@@ -34,6 +42,30 @@ const submitHomeServiceForm = async (req, res) => {
         message: "Please provide complete address information",
       });
     }
+
+    // Generate unique submission ID
+    const submissionId = `HS-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+
+    // Save to database
+    const homeServiceSubmission = new HomeService({
+      submission_id: submissionId,
+      name,
+      email,
+      phone,
+      service,
+      custom_service: customService,
+      description,
+      address: {
+        street: address.street,
+        area: address.area,
+        local_government: address.localGovernment,
+        state: address.state,
+      },
+    });
+
+    await homeServiceSubmission.save();
 
     // Render email template
     const emailHtml = await new Promise((resolve, reject) => {
@@ -91,6 +123,11 @@ const submitHomeServiceForm = async (req, res) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Home service request submitted successfully",
+      data: {
+        submissionId,
+        service,
+        estimatedResponse: "24-48 hours",
+      },
     });
   } catch (error) {
     console.error("Error submitting home service form:", error);
@@ -152,6 +189,32 @@ const submitBecomeArtisanForm = async (req, res) => {
       });
     }
 
+    // Generate unique submission ID
+    const submissionId = `AA-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
+
+    // Save to database
+    const artisanApplication = new ArtisanApplication({
+      submission_id: submissionId,
+      full_name: fullName,
+      email,
+      phone,
+      address: {
+        street: address.street,
+        area: address.area,
+        local_government: address.localGovernment,
+        state: address.state,
+      },
+      skill_category: skillCategory,
+      experience,
+      id_type: idType,
+      id_number: idNumber,
+      about,
+    });
+
+    await artisanApplication.save();
+
     // Render email template
     const emailHtml = await new Promise((resolve, reject) => {
       ejs.renderFile(
@@ -200,6 +263,11 @@ const submitBecomeArtisanForm = async (req, res) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Artisan application submitted successfully",
+      data: {
+        submissionId,
+        skillCategory,
+        estimatedResponse: "3-5 business days",
+      },
     });
   } catch (error) {
     console.error("Error submitting artisan application:", error);
@@ -227,6 +295,23 @@ const submitContactForm = async (req, res) => {
         message: "Please provide all required fields",
       });
     }
+
+    // Generate unique submission ID
+    const submissionId = `CF-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
+
+    // Save to database
+    const contactFormSubmission = new ContactForm({
+      submission_id: submissionId,
+      name,
+      email,
+      phone,
+      subject,
+      message,
+    });
+
+    await contactFormSubmission.save();
 
     // Render email template
     const emailHtml = await new Promise((resolve, reject) => {
@@ -274,6 +359,11 @@ const submitContactForm = async (req, res) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Message sent successfully",
+      data: {
+        submissionId,
+        subject,
+        estimatedResponse: "24 hours",
+      },
     });
   } catch (error) {
     console.error("Error submitting contact form:", error);
@@ -344,6 +434,38 @@ const submitDisputeResolutionForm = async (req, res) => {
         });
       }
     }
+
+    // Generate unique submission ID
+    const submissionId = `${
+      actionType === "dispute" ? "DR" : "RP"
+    }-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+    // Save to database
+    const disputeSubmission = new DisputeResolution({
+      submission_id: submissionId,
+      name,
+      email,
+      phone,
+      action_type: actionType,
+      dispute_type: disputeType,
+      booking_reference: bookingReference,
+      property_name: propertyName,
+      other_party_id: otherPartyId,
+      description,
+      urgency_level: urgencyLevel,
+      user_role: userRole,
+      payment_reference: paymentReference,
+      payment_status: paymentStatus,
+      amount,
+      priority:
+        urgencyLevel === "high"
+          ? "high"
+          : urgencyLevel === "medium"
+          ? "medium"
+          : "low",
+    });
+
+    await disputeSubmission.save();
 
     // Render email template
     const emailHtml = await new Promise((resolve, reject) => {
@@ -416,7 +538,18 @@ const submitDisputeResolutionForm = async (req, res) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: `${actionLabel} submitted successfully`,
-      actionType,
+      data: {
+        submissionId,
+        actionType,
+        disputeType,
+        urgencyLevel,
+        estimatedResponse:
+          urgencyLevel === "high"
+            ? "4-6 hours"
+            : urgencyLevel === "medium"
+            ? "24 hours"
+            : "48-72 hours",
+      },
     });
   } catch (error) {
     console.error("Error submitting dispute resolution form:", error);
@@ -457,6 +590,27 @@ const submitInspectionRequest = async (req, res) => {
       });
     }
 
+    // Generate unique submission ID
+    const submissionId = `IR-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
+
+    // Save to database
+    const inspectionRequest = new InspectionRequest({
+      submission_id: submissionId,
+      full_name: fullName,
+      phone_number: phoneNumber,
+      property_id: propertyId,
+      owner_email,
+      preferred_dates: {
+        date1: new Date(preferredDate1),
+        date2: new Date(preferredDate2),
+        date3: new Date(preferredDate3),
+      },
+    });
+
+    await inspectionRequest.save();
+
     // Render email template
     const emailHtml = await new Promise((resolve, reject) => {
       ejs.renderFile(
@@ -494,6 +648,12 @@ const submitInspectionRequest = async (req, res) => {
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Inspection request submitted successfully",
+      data: {
+        submissionId,
+        propertyId,
+        preferredDates: [preferredDate1, preferredDate2, preferredDate3],
+        estimatedResponse: "24 hours",
+      },
     });
   } catch (error) {
     console.error("Error submitting inspection request:", error);
@@ -567,10 +727,37 @@ const submitPropertyManagementForm = async (req, res) => {
       });
     }
 
+    // Generate unique submission ID
+    const submissionId = `PM-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
+
+    // Save to database
+    const propertyManagementApplication = new PropertyManagement({
+      submission_id: submissionId,
+      full_name: fullName,
+      email,
+      phone_number: phoneNumber,
+      property_type: propertyType,
+      number_of_properties: numberOfProperties,
+      address: {
+        street: address.street,
+        area: address.area,
+        local_government: address.localGovernment,
+        state: address.state,
+      },
+      agree_to_fee: agreeToFee,
+    });
+
+    await propertyManagementApplication.save();
+
     // Render email template
     const emailHtml = await new Promise((resolve, reject) => {
       ejs.renderFile(
-        path.join(__dirname, "../views/emails/propertyManagementApplication.ejs"),
+        path.join(
+          __dirname,
+          "../views/emails/propertyManagementApplication.ejs"
+        ),
         {
           fullName,
           email,
@@ -597,7 +784,11 @@ const submitPropertyManagementForm = async (req, res) => {
       to: "property-management@aplet360.com",
       cc: "support@aplet360.com",
       subject: `New Property Management Application: ${propertyType} - ${numberOfProperties} Properties`,
-      text: `New property management application from ${fullName}. Property Type: ${propertyType}. Number of Properties: ${numberOfProperties}. Contact: ${email}, ${phoneNumber}. Address: ${address.street}, ${address.area}, ${address.localGovernment}, ${address.state}. Agreed to 5% fee: ${agreeToFee ? 'Yes' : 'No'}`,
+      text: `New property management application from ${fullName}. Property Type: ${propertyType}. Number of Properties: ${numberOfProperties}. Contact: ${email}, ${phoneNumber}. Address: ${
+        address.street
+      }, ${address.area}, ${address.localGovernment}, ${
+        address.state
+      }. Agreed to 5% fee: ${agreeToFee ? "Yes" : "No"}`,
       html: emailHtml,
     });
 
@@ -633,7 +824,7 @@ const submitPropertyManagementForm = async (req, res) => {
       success: true,
       message: "Property management application submitted successfully",
       data: {
-        applicationId: `PM-${Date.now()}`,
+        submissionId,
         propertyType,
         numberOfProperties,
         estimatedResponse: "24-48 hours",

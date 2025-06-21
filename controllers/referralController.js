@@ -77,7 +77,7 @@ const sendReferralInvitation = async (req, res) => {
     await sendEmail({
       to: email,
       subject: `${referrer.first_name} invited you to join Aplet360 - Get FREE Home Fix Services!`,
-      text: `${referrer.first_name} ${referrer.last_name} has invited you to join Aplet360, Africa's premier apartment rental platform. Sign up using their referral link: ${referralLink} and both of you will earn FREE Home Fix services!`,
+      text: `${referrer.first_name} ${referrer.last_name} has invited you to join Aplet360, Africa's premium apartment rental platform. Sign up using their referral link: ${referralLink} and both of you will earn FREE Home Fix services!`,
       html: emailHtml,
     });
 
@@ -189,38 +189,136 @@ const getAllReferrals = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    let referrals = await Referral.find(query)
-      .populate("referrer", "first_name last_name email short_id")
-      .populate("referred_user", "first_name last_name email short_id role")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    let referrals;
 
-    // Apply search filter if provided
     if (search) {
-      referrals = referrals.filter(
-        (ref) =>
-          ref.referrer?.first_name
-            ?.toLowerCase()
-            .includes(search.toLowerCase()) ||
-          ref.referrer?.last_name
-            ?.toLowerCase()
-            .includes(search.toLowerCase()) ||
-          ref.referrer?.email?.toLowerCase().includes(search.toLowerCase()) ||
-          ref.referred_user?.first_name
-            ?.toLowerCase()
-            .includes(search.toLowerCase()) ||
-          ref.referred_user?.last_name
-            ?.toLowerCase()
-            .includes(search.toLowerCase()) ||
-          ref.referred_user?.email
-            ?.toLowerCase()
-            .includes(search.toLowerCase()) ||
-          ref.referral_code?.toLowerCase().includes(search.toLowerCase())
-      );
+      // Enhanced search functionality
+      referrals = await Referral.aggregate([
+        {
+          $lookup: {
+            from: "users",
+            localField: "referrer",
+            foreignField: "_id",
+            as: "referrer",
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "referred_user",
+            foreignField: "_id",
+            as: "referred_user",
+          },
+        },
+        {
+          $unwind: "$referrer",
+        },
+        {
+          $unwind: "$referred_user",
+        },
+        {
+          $match: {
+            ...query,
+            $or: [
+              { "referrer.first_name": { $regex: search, $options: "i" } },
+              { "referrer.last_name": { $regex: search, $options: "i" } },
+              { "referrer.email": { $regex: search, $options: "i" } },
+              { "referred_user.first_name": { $regex: search, $options: "i" } },
+              { "referred_user.last_name": { $regex: search, $options: "i" } },
+              { "referred_user.email": { $regex: search, $options: "i" } },
+              { referral_code: { $regex: search, $options: "i" } },
+            ],
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            referrer: {
+              _id: "$referrer._id",
+              first_name: "$referrer.first_name",
+              last_name: "$referrer.last_name",
+              email: "$referrer.email",
+              short_id: "$referrer.short_id",
+            },
+            referred_user: {
+              _id: "$referred_user._id",
+              first_name: "$referred_user.first_name",
+              last_name: "$referred_user.last_name",
+              email: "$referred_user.email",
+              short_id: "$referred_user.short_id",
+              role: "$referred_user.role",
+            },
+            referral_code: 1,
+            status: 1,
+            referred_user_role: 1,
+            verification_completed_at: 1,
+            reward_earned: 1,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: parseInt(limit) },
+      ]);
+    } else {
+      referrals = await Referral.find(query)
+        .populate("referrer", "first_name last_name email short_id")
+        .populate("referred_user", "first_name last_name email short_id role")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit));
     }
 
-    const totalReferrals = await Referral.countDocuments(query);
+    // Get total count for pagination (considering search if provided)
+    let totalReferrals;
+    if (search) {
+      // Count with search criteria
+      const countPipeline = [
+        {
+          $lookup: {
+            from: "users",
+            localField: "referrer",
+            foreignField: "_id",
+            as: "referrer",
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "referred_user",
+            foreignField: "_id",
+            as: "referred_user",
+          },
+        },
+        {
+          $unwind: "$referrer",
+        },
+        {
+          $unwind: "$referred_user",
+        },
+        {
+          $match: {
+            ...query,
+            $or: [
+              { "referrer.first_name": { $regex: search, $options: "i" } },
+              { "referrer.last_name": { $regex: search, $options: "i" } },
+              { "referrer.email": { $regex: search, $options: "i" } },
+              { "referred_user.first_name": { $regex: search, $options: "i" } },
+              { "referred_user.last_name": { $regex: search, $options: "i" } },
+              { "referred_user.email": { $regex: search, $options: "i" } },
+              { referral_code: { $regex: search, $options: "i" } },
+            ],
+          },
+        },
+        { $count: "total" },
+      ];
+
+      const countResult = await Referral.aggregate(countPipeline);
+      totalReferrals = countResult[0]?.total || 0;
+    } else {
+      totalReferrals = await Referral.countDocuments(query);
+    }
 
     res.status(StatusCodes.OK).json({
       success: true,
@@ -240,6 +338,101 @@ const getAllReferrals = async (req, res) => {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Failed to fetch referrals",
+      error: error.message,
+    });
+  }
+};
+
+// Get individual referral details (Admin only)
+const getReferralById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const Referral = require("../models/referral");
+
+    const referral = await Referral.findById(id)
+      .populate(
+        "referrer",
+        "first_name last_name email short_id phone referral"
+      )
+      .populate(
+        "referred_user",
+        "first_name last_name email short_id phone role createdAt"
+      );
+
+    if (!referral) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: "Referral not found",
+      });
+    }
+
+    // Get referrer's performance metrics
+    const referrerStats = await Referral.aggregate([
+      { $match: { referrer: referral.referrer._id } },
+      {
+        $group: {
+          _id: null,
+          totalReferrals: { $sum: 1 },
+          verifiedReferrals: {
+            $sum: { $cond: [{ $eq: ["$status", "verified"] }, 1, 0] },
+          },
+          pendingReferrals: {
+            $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] },
+          },
+          totalRewards: { $sum: "$reward_earned" },
+          ownerReferrals: {
+            $sum: { $cond: [{ $eq: ["$referred_user_role", "owner"] }, 1, 0] },
+          },
+          userReferrals: {
+            $sum: { $cond: [{ $eq: ["$referred_user_role", "user"] }, 1, 0] },
+          },
+        },
+      },
+    ]);
+
+    const stats = referrerStats[0] || {
+      totalReferrals: 0,
+      verifiedReferrals: 0,
+      pendingReferrals: 0,
+      totalRewards: 0,
+      ownerReferrals: 0,
+      userReferrals: 0,
+    };
+
+    // Calculate conversion rate
+    stats.conversionRate =
+      stats.totalReferrals > 0
+        ? ((stats.verifiedReferrals / stats.totalReferrals) * 100).toFixed(2)
+        : 0;
+
+    // Get referrer's recent referrals for context
+    const recentReferrals = await Referral.find({
+      referrer: referral.referrer._id,
+    })
+      .populate("referred_user", "first_name last_name email role")
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: {
+        referral,
+        referrerStats: stats,
+        recentReferrals: recentReferrals.map((ref) => ({
+          id: ref._id,
+          referredUser: ref.referred_user,
+          status: ref.status,
+          role: ref.referred_user_role,
+          createdAt: ref.createdAt,
+          verifiedAt: ref.verification_completed_at,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching referral details:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Failed to fetch referral details",
       error: error.message,
     });
   }
@@ -431,6 +624,7 @@ module.exports = {
   sendReferralInvitation,
   getReferralStats,
   getAllReferrals,
+  getReferralById,
   getReferralAnalytics,
   validateReferralCode,
 };

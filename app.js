@@ -14,12 +14,13 @@ const bookingRoutes = require("./routes/bookingRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
 const kycRoutes = require("./routes/kycRoutes");
+const adminFormRoutes = require("./routes/adminFormRoutes");
 
 dotenv.config();
 
 // Move cors configuration before rate limiters
 const corsOptions = {
-  origin: '*', // Allow requests from any origin
+  origin: "*", // Allow requests from any origin
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   credentials: true,
   optionsSuccessStatus: 200,
@@ -69,6 +70,7 @@ app.use("/api/v1/bookings", bookingRoutes);
 app.use("/api/v1/uploads", uploadRoutes);
 app.use("/api/v1/favorites", favoriteRoutes);
 app.use("/api/v1/kyc", kycRoutes);
+app.use("/api/v1/admin/forms", adminFormRoutes);
 
 // Error handling middleware
 app.use(notFoundMiddleware);

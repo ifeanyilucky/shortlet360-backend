@@ -124,8 +124,14 @@ const propertyController = {
         filter.owner = req.query.owner;
       }
 
+      // Property ID search (exact match for short_id)
+      if (req.query.propertyId) {
+        filter.short_id = req.query.propertyId.toUpperCase(); // Convert to uppercase for consistency
+      }
+
       // Text search on property name, description, and location (city and state)
-      if (req.query.search) {
+      // Only apply general search if no specific property ID is provided
+      if (req.query.search && !req.query.propertyId) {
         filter.$or = [
           { property_name: { $regex: req.query.search, $options: "i" } },
           { property_description: { $regex: req.query.search, $options: "i" } },
@@ -137,6 +143,8 @@ const propertyController = {
               $options: "i",
             },
           },
+          // Also search by short_id in general search
+          { short_id: { $regex: req.query.search, $options: "i" } },
         ];
       }
 
@@ -211,11 +219,6 @@ const propertyController = {
       ) {
         // Remove the publication_status filter for owners viewing their own properties
         delete filter.publication_status;
-      }
-
-      // Short ID (Property ID) filter
-      if (req.query.short_id) {
-        filter.short_id = req.query.short_id;
       }
 
       console.log("filter", filter);

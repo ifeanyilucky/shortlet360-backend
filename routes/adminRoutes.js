@@ -34,6 +34,7 @@ router.patch("/bookings/:id/status", adminController.updateBookingStatus);
 // KYC verification management
 router.get("/kyc/pending", adminController.getPendingKycVerifications);
 router.get("/kyc/verified", adminController.getAllKycVerifications);
+router.get("/kyc/all", adminController.getUnifiedKycVerifications); // Unified endpoint for all KYC records with advanced filtering
 router.patch("/kyc/:userId/tier1", adminController.updateTier1Verification);
 router.patch("/kyc/:userId/tier2", adminController.updateTier2Verification);
 router.patch("/kyc/:userId/tier3", adminController.updateTier3Verification);

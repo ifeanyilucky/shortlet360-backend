@@ -371,10 +371,11 @@ const updateBookingStatus = async (req, res) => {
 
 // KYC verification management
 const getPendingKycVerifications = async (req, res) => {
-  const { tier, page = 1, limit = 10 } = req.query;
+  const { tier, search, page = 1, limit = 10 } = req.query;
 
   const query = {};
 
+  // Filter by tier
   if (tier === "1") {
     query["kyc.tier1.status"] = "pending";
   } else if (tier === "2") {
@@ -390,13 +391,42 @@ const getPendingKycVerifications = async (req, res) => {
     ];
   }
 
+  // Add search functionality
+  if (search) {
+    const searchQuery = {
+      $or: [
+        { first_name: { $regex: search, $options: "i" } },
+        { last_name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { short_id: { $regex: search, $options: "i" } },
+        { phone_number: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    // Combine tier filter with search filter
+    if (query.$or) {
+      // If we already have an $or for tier filtering, we need to use $and
+      query.$and = [{ $or: query.$or }, searchQuery];
+      delete query.$or;
+    } else {
+      // If we have a specific tier filter, combine it with search
+      query.$and = [{ ...query }, searchQuery];
+      // Remove the tier-specific query from the main query object
+      Object.keys(query).forEach((key) => {
+        if (key.startsWith("kyc.")) {
+          delete query[key];
+        }
+      });
+    }
+  }
+
   const skip = (page - 1) * limit;
 
   const users = await User.find(query)
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(parseInt(limit))
-    .select("first_name last_name email role short_id kyc");
+    .select("first_name last_name email role short_id phone_number kyc");
 
   const totalUsers = await User.countDocuments(query);
 
@@ -410,10 +440,189 @@ const getPendingKycVerifications = async (req, res) => {
     },
   });
 };
+// Unified KYC verification endpoint that handles all filtering
+const getUnifiedKycVerifications = async (req, res) => {
+  const { tier, search, status, page = 1, limit = 10 } = req.query;
+
+  let query = {};
+
+  // Build the base query based on status filter
+  if (status === "verified") {
+    // Only show users with at least one verified tier
+    query.$or = [
+      { "kyc.tier1.status": "verified" },
+      { "kyc.tier2.status": "verified" },
+      { "kyc.tier3.status": "verified" },
+    ];
+  } else if (status === "pending") {
+    // Only show users with at least one pending tier
+    query.$or = [
+      { "kyc.tier1.status": "pending" },
+      { "kyc.tier2.status": "pending" },
+      { "kyc.tier3.status": "pending" },
+    ];
+  } else if (status === "rejected") {
+    // Only show users with at least one rejected tier
+    query.$or = [
+      { "kyc.tier1.status": "rejected" },
+      { "kyc.tier2.status": "rejected" },
+      { "kyc.tier3.status": "rejected" },
+    ];
+  } else {
+    // For "all" status, show users who have any KYC data
+    query.$or = [
+      { "kyc.tier1": { $exists: true } },
+      { "kyc.tier2": { $exists: true } },
+      { "kyc.tier3": { $exists: true } },
+    ];
+  }
+
+  // Refine query based on specific tier
+  if (tier === "1") {
+    if (status && status !== "all") {
+      query = { "kyc.tier1.status": status };
+    } else {
+      query = { "kyc.tier1": { $exists: true } };
+    }
+  } else if (tier === "2") {
+    if (status && status !== "all") {
+      query = { "kyc.tier2.status": status };
+    } else {
+      query = { "kyc.tier2": { $exists: true } };
+    }
+  } else if (tier === "3") {
+    if (status && status !== "all") {
+      query = { "kyc.tier3.status": status };
+    } else {
+      query = { "kyc.tier3": { $exists: true } };
+    }
+  }
+
+  // Add search functionality
+  if (search) {
+    const searchQuery = {
+      $or: [
+        { first_name: { $regex: search, $options: "i" } },
+        { last_name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { short_id: { $regex: search, $options: "i" } },
+        { phone_number: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    // Combine existing filters with search filter using $and
+    query = {
+      $and: [query, searchQuery],
+    };
+  }
+
+  const skip = (page - 1) * limit;
+
+  try {
+    const users = await User.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .select("first_name last_name email role short_id phone_number kyc");
+
+    const totalUsers = await User.countDocuments(query);
+
+    res.status(StatusCodes.OK).json({
+      users,
+      pagination: {
+        total: totalUsers,
+        page: parseInt(page),
+        pages: Math.ceil(totalUsers / limit),
+        limit: parseInt(limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error in getUnifiedKycVerifications:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      message: "Failed to fetch KYC verifications",
+      error: error.message,
+    });
+  }
+};
+
 const getAllKycVerifications = async (req, res) => {
-  const { tier, page = 1, limit = 10 } = req.query;
+  const { tier, search, status, page = 1, limit = 10 } = req.query;
 
   const query = {};
+
+  // Filter by verification status (verified, pending, rejected, or all)
+  if (status === "verified") {
+    // Only show users with at least one verified tier
+    query.$or = [
+      { "kyc.tier1.status": "verified" },
+      { "kyc.tier2.status": "verified" },
+      { "kyc.tier3.status": "verified" },
+    ];
+  } else if (status === "pending") {
+    // Only show users with at least one pending tier
+    query.$or = [
+      { "kyc.tier1.status": "pending" },
+      { "kyc.tier2.status": "pending" },
+      { "kyc.tier3.status": "pending" },
+    ];
+  } else if (status === "rejected") {
+    // Only show users with at least one rejected tier
+    query.$or = [
+      { "kyc.tier1.status": "rejected" },
+      { "kyc.tier2.status": "rejected" },
+      { "kyc.tier3.status": "rejected" },
+    ];
+  }
+  // If status is "all" or not specified, don't add status filter
+
+  // Filter by specific tier
+  if (tier === "1") {
+    if (status && status !== "all") {
+      query["kyc.tier1.status"] = status;
+      delete query.$or; // Remove the general status filter
+    } else {
+      query["kyc.tier1"] = { $exists: true };
+    }
+  } else if (tier === "2") {
+    if (status && status !== "all") {
+      query["kyc.tier2.status"] = status;
+      delete query.$or; // Remove the general status filter
+    } else {
+      query["kyc.tier2"] = { $exists: true };
+    }
+  } else if (tier === "3") {
+    if (status && status !== "all") {
+      query["kyc.tier3.status"] = status;
+      delete query.$or; // Remove the general status filter
+    } else {
+      query["kyc.tier3"] = { $exists: true };
+    }
+  }
+
+  // Add search functionality
+  if (search) {
+    const searchQuery = {
+      $or: [
+        { first_name: { $regex: search, $options: "i" } },
+        { last_name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { short_id: { $regex: search, $options: "i" } },
+        { phone_number: { $regex: search, $options: "i" } },
+      ],
+    };
+
+    // Combine existing filters with search filter
+    if (query.$or || Object.keys(query).length > 0) {
+      const existingQuery = { ...query };
+      query.$and = [existingQuery, searchQuery];
+      // Clear the original query properties to avoid duplication
+      Object.keys(existingQuery).forEach((key) => {
+        delete query[key];
+      });
+    } else {
+      Object.assign(query, searchQuery);
+    }
+  }
 
   const skip = (page - 1) * limit;
 
@@ -421,7 +630,7 @@ const getAllKycVerifications = async (req, res) => {
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(parseInt(limit))
-    .select("first_name last_name email role short_id kyc");
+    .select("first_name last_name email role short_id phone_number kyc");
 
   const totalUsers = await User.countDocuments(query);
 
@@ -607,4 +816,5 @@ module.exports = {
   updateTier2Verification,
   updateTier3Verification,
   getAllKycVerifications,
+  getUnifiedKycVerifications,
 };

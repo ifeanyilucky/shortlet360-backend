@@ -1,5 +1,5 @@
 const config = {
-  base_url: "http://localhost:5173",
+  base_url: "https://aplet360.com",
   app_name: "Aplet360",
 };
 

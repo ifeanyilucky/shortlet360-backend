@@ -13,6 +13,7 @@ const formRoutes = require("./formRoutes");
 const referralRoutes = require("./referralRoutes");
 const blogRoutes = require("./blogRoutes");
 const discountCodeRoutes = require("./discountCodeRoutes");
+const newsletterRoutes = require("./newsletterRoutes");
 
 router.use("/auth", authRouter);
 router.use("/auth/admin", adminAuthRoutes);
@@ -26,5 +27,6 @@ router.use("/forms", formRoutes);
 router.use("/referral", referralRoutes);
 router.use("/blog", blogRoutes);
 router.use("/discount-codes", discountCodeRoutes);
+router.use("/newsletter", newsletterRoutes);
 
 module.exports = router;

@@ -1,0 +1,39 @@
+<%- include('./layout/emailLayout', { title: 'Welcome to Aplet360 Newsletter!', content: `
+<p>Hello there!</p>
+
+<p>
+  Thank you for subscribing to the Aplet360 newsletter! We're excited to have you join our community of property enthusiasts, tenants, and landlords.
+</p>
+
+<p>
+  You'll now receive regular updates about:
+</p>
+
+<div class="benefits">
+  <ul>
+    <li>Latest property listings and market insights</li>
+    <li>Tips for finding the perfect apartment</li>
+    <li>Property management best practices</li>
+    <li>Exclusive deals and promotions</li>
+    <li>Industry news and trends</li>
+    <li>Home improvement and maintenance tips</li>
+  </ul>
+</div>
+
+<p>
+  We promise to keep our emails valuable and not spam your inbox. You can expect to hear from us with quality content that helps you make the most of your property journey.
+</p>
+
+<div style="text-align: center; margin: 30px 0;">
+  <a href="${process.env.FRONTEND_URL}" class="button">Visit Aplet360</a>
+</div>
+
+<p>
+  If you have any questions or suggestions for newsletter content, please don't hesitate to contact us at
+  <a href="mailto:support@aplet360.com">support@aplet360.com</a>.
+</p>
+
+<p style="font-size: 12px; color: #666; margin-top: 30px;">
+  You can <a href="${unsubscribeUrl}">unsubscribe from this newsletter</a> at any time.
+</p>
+` }) %>

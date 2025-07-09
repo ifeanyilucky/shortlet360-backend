@@ -175,6 +175,31 @@ const propertyManagementSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// RNPL Waitlist Schema
+const rnplWaitlistSchema = new mongoose.Schema(
+  {
+    ...baseFormSchema,
+    form_type: {
+      type: String,
+      default: "rnpl_waitlist",
+    },
+    full_name: { type: String, required: true },
+    email: { type: String, required: true },
+    phone: { type: String, required: true },
+    occupation: { type: String, required: true },
+    address: { type: String, required: true },
+    job_type: {
+      type: String,
+      required: true,
+      enum: ["Employed", "Self-Employed", "Business Owner"],
+    },
+    monthly_income: String,
+    current_rent_amount: String,
+    preferred_location: String,
+  },
+  { timestamps: true }
+);
+
 // Create indexes for better performance
 homeServiceSchema.index({ email: 1, createdAt: -1 });
 homeServiceSchema.index({ status: 1 });
@@ -200,12 +225,29 @@ propertyManagementSchema.index({ email: 1, createdAt: -1 });
 propertyManagementSchema.index({ status: 1 });
 propertyManagementSchema.index({ submission_id: 1 });
 
+rnplWaitlistSchema.index({ email: 1, createdAt: -1 });
+rnplWaitlistSchema.index({ status: 1 });
+rnplWaitlistSchema.index({ submission_id: 1 });
+
 // Export models
 module.exports = {
   HomeService: mongoose.model("HomeService", homeServiceSchema),
-  ArtisanApplication: mongoose.model("ArtisanApplication", artisanApplicationSchema),
+  ArtisanApplication: mongoose.model(
+    "ArtisanApplication",
+    artisanApplicationSchema
+  ),
   ContactForm: mongoose.model("ContactForm", contactFormSchema),
-  DisputeResolution: mongoose.model("DisputeResolution", disputeResolutionSchema),
-  InspectionRequest: mongoose.model("InspectionRequest", inspectionRequestSchema),
-  PropertyManagement: mongoose.model("PropertyManagement", propertyManagementSchema),
+  DisputeResolution: mongoose.model(
+    "DisputeResolution",
+    disputeResolutionSchema
+  ),
+  InspectionRequest: mongoose.model(
+    "InspectionRequest",
+    inspectionRequestSchema
+  ),
+  PropertyManagement: mongoose.model(
+    "PropertyManagement",
+    propertyManagementSchema
+  ),
+  RNPLWaitlist: mongoose.model("RNPLWaitlist", rnplWaitlistSchema),
 };

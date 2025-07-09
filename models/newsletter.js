@@ -20,7 +20,7 @@ const newsletterSchema = new mongoose.Schema(
     },
     source: {
       type: String,
-      enum: ["landing_page", "blog", "admin"],
+      enum: ["landing_page", "blog", "admin", "rnpl_waitlist"],
       default: "landing_page",
     },
     subscribed_at: {

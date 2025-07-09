@@ -18,6 +18,12 @@ router.post("/dispute-resolution", formController.submitDisputeResolutionForm);
 router.post("/inspection-request", formController.submitInspectionRequest);
 
 // Property management form submission
-router.post("/property-management", formController.submitPropertyManagementForm);
+router.post(
+  "/property-management",
+  formController.submitPropertyManagementForm
+);
+
+// RNPL waitlist form submission
+router.post("/rnpl-waitlist", formController.submitRNPLWaitlistForm);
 
 module.exports = router;

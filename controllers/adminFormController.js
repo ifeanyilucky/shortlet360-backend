@@ -6,6 +6,7 @@ const {
   DisputeResolution,
   InspectionRequest,
   PropertyManagement,
+  RNPLWaitlist,
 } = require("../models/formSubmission");
 
 /**
@@ -26,11 +27,11 @@ const getAllFormSubmissions = async (req, res) => {
 
     // Build filter object
     const filter = {};
-    
+
     if (form_type) filter.form_type = form_type;
     if (status) filter.status = status;
     if (priority) filter.priority = priority;
-    
+
     // Date range filter
     if (start_date || end_date) {
       filter.createdAt = {};
@@ -62,13 +63,14 @@ const getAllFormSubmissions = async (req, res) => {
       { model: DisputeResolution, type: "dispute_resolution" },
       { model: InspectionRequest, type: "inspection_request" },
       { model: PropertyManagement, type: "property_management" },
+      { model: RNPLWaitlist, type: "rnpl_waitlist" },
     ];
 
     let allSubmissions = [];
 
     // If specific form type is requested
     if (form_type) {
-      const modelInfo = models.find(m => m.type === form_type);
+      const modelInfo = models.find((m) => m.type === form_type);
       if (modelInfo) {
         const submissions = await modelInfo.model
           .find(filter)
@@ -90,7 +92,9 @@ const getAllFormSubmissions = async (req, res) => {
     }
 
     // Sort all submissions by creation date
-    allSubmissions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    allSubmissions.sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
 
     // Pagination
     const startIndex = (page - 1) * limit;
@@ -100,12 +104,13 @@ const getAllFormSubmissions = async (req, res) => {
     // Get statistics
     const stats = {
       total: allSubmissions.length,
-      pending: allSubmissions.filter(s => s.status === "pending").length,
-      in_progress: allSubmissions.filter(s => s.status === "in_progress").length,
-      resolved: allSubmissions.filter(s => s.status === "resolved").length,
-      closed: allSubmissions.filter(s => s.status === "closed").length,
-      high_priority: allSubmissions.filter(s => s.priority === "high").length,
-      urgent: allSubmissions.filter(s => s.priority === "urgent").length,
+      pending: allSubmissions.filter((s) => s.status === "pending").length,
+      in_progress: allSubmissions.filter((s) => s.status === "in_progress")
+        .length,
+      resolved: allSubmissions.filter((s) => s.status === "resolved").length,
+      closed: allSubmissions.filter((s) => s.status === "closed").length,
+      high_priority: allSubmissions.filter((s) => s.priority === "high").length,
+      urgent: allSubmissions.filter((s) => s.priority === "urgent").length,
     };
 
     res.status(StatusCodes.OK).json({
@@ -221,7 +226,7 @@ const updateFormSubmissionStatus = async (req, res) => {
       if (priority) updateData.priority = priority;
       if (admin_notes) updateData.admin_notes = admin_notes;
       if (assigned_to) updateData.assigned_to = assigned_to;
-      
+
       // If status is resolved or closed, set resolved fields
       if (status === "resolved" || status === "closed") {
         updateData.resolved_at = new Date();
@@ -231,7 +236,7 @@ const updateFormSubmissionStatus = async (req, res) => {
       submission = await Model.findByIdAndUpdate(id, updateData, { new: true })
         .populate("assigned_to", "first_name last_name email")
         .populate("resolved_by", "first_name last_name email");
-      
+
       if (submission) break;
     }
 
@@ -269,6 +274,7 @@ const getFormSubmissionStats = async (req, res) => {
       { model: DisputeResolution, type: "dispute_resolution" },
       { model: InspectionRequest, type: "inspection_request" },
       { model: PropertyManagement, type: "property_management" },
+      { model: RNPLWaitlist, type: "rnpl_waitlist" },
     ];
 
     const stats = {};
@@ -280,9 +286,15 @@ const getFormSubmissionStats = async (req, res) => {
 
     for (const modelInfo of models) {
       const total = await modelInfo.model.countDocuments();
-      const pending = await modelInfo.model.countDocuments({ status: "pending" });
-      const inProgress = await modelInfo.model.countDocuments({ status: "in_progress" });
-      const resolved = await modelInfo.model.countDocuments({ status: "resolved" });
+      const pending = await modelInfo.model.countDocuments({
+        status: "pending",
+      });
+      const inProgress = await modelInfo.model.countDocuments({
+        status: "in_progress",
+      });
+      const resolved = await modelInfo.model.countDocuments({
+        status: "resolved",
+      });
       const closed = await modelInfo.model.countDocuments({ status: "closed" });
 
       stats[modelInfo.type] = {

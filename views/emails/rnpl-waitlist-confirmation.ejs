@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to RNPL Waitlist - Aplet360</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f8f9fa;
+      }
+      .container {
+        background-color: white;
+        padding: 40px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      .logo {
+        font-size: 28px;
+        font-weight: bold;
+        color: #1a365d;
+        margin-bottom: 10px;
+      }
+      .title {
+        color: #1a365d;
+        font-size: 24px;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+      .content {
+        margin-bottom: 30px;
+      }
+      .highlight {
+        background-color: #e6f3ff;
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 4px solid #1a365d;
+        margin: 20px 0;
+      }
+      .submission-id {
+        font-family: "Courier New", monospace;
+        background-color: #f1f5f9;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-weight: bold;
+        color: #1a365d;
+      }
+      .benefits {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 20px 0;
+      }
+      .benefits h3 {
+        color: #1a365d;
+        margin-top: 0;
+      }
+      .benefits ul {
+        margin: 10px 0;
+        padding-left: 20px;
+      }
+      .benefits li {
+        margin-bottom: 8px;
+      }
+      .footer {
+        text-align: center;
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid #e2e8f0;
+        color: #64748b;
+        font-size: 14px;
+      }
+      .social-links {
+        margin: 20px 0;
+      }
+      .social-links a {
+        color: #1a365d;
+        text-decoration: none;
+        margin: 0 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div class="logo">Aplet360</div>
+        <p style="color: #64748b; margin: 0">Your Trusted Property Partner</p>
+      </div>
+
+      <h1 class="title">Welcome to RNPL Waitlist! 🎉</h1>
+
+      <div class="content">
+        <p>Dear <%= fullName %>,</p>
+
+        <p>
+          Thank you for joining our
+          <strong>Rent Now Pay Later (RNPL)</strong> waitlist! We're excited to
+          have you as one of our early adopters.
+        </p>
+
+        <div class="highlight">
+          <p><strong>Your Registration Details:</strong></p>
+          <p>
+            Submission ID:
+            <span class="submission-id"><%= submissionId %></span>
+          </p>
+          <p>
+            We've successfully received your application and you're now on our
+            priority waitlist.
+          </p>
+        </div>
+
+        <div class="benefits">
+          <h3>What's Next?</h3>
+          <ul>
+            <li>
+              <strong>Pre-qualification Process:</strong> Our team will review
+              your information to pre-qualify you for our RNPL solution
+            </li>
+            <li>
+              <strong>Early Access:</strong> As a waitlist member, you'll get
+              priority access when we launch
+            </li>
+            <li>
+              <strong>Exclusive Updates:</strong> We'll keep you informed about
+              our progress and launch timeline
+            </li>
+            <li>
+              <strong>Newsletter Subscription:</strong> You've been
+              automatically subscribed to our newsletter for property insights
+              and updates
+            </li>
+            <li>
+              <strong>Special Benefits:</strong> Waitlist members will receive
+              exclusive perks and potentially better terms
+            </li>
+          </ul>
+        </div>
+
+        <div class="benefits">
+          <h3>RNPL Benefits You'll Enjoy:</h3>
+          <ul>
+            <li>
+              🏠 <strong>Flexible Payment Options:</strong> Pay your rent
+              monthly instead of annually
+            </li>
+            <li>
+              💰 <strong>No Yearly Rent Required:</strong> Eliminate the burden
+              of large upfront payments
+            </li>
+            <li>
+              📅 <strong>Monthly Payment Plans:</strong> Spread your rent
+              payments across 12 months
+            </li>
+            <li>
+              🔓 <strong>Financial Freedom:</strong> Keep your cash flow
+              flexible for other investments
+            </li>
+          </ul>
+        </div>
+
+        <p>
+          We're working hard to launch this revolutionary service and will
+          notify you as soon as it's available. In the meantime, feel free to
+          explore our current property listings and services.
+        </p>
+
+        <p>
+          If you have any questions about RNPL or need assistance with anything
+          else, don't hesitate to reach out to our support team.
+        </p>
+
+        <p>Thank you for choosing Aplet360!</p>
+
+        <p>
+          Best regards,<br />
+          <strong>The Aplet360 Team</strong>
+        </p>
+      </div>
+
+      <div class="footer">
+        <div class="social-links">
+          <a href="https://aplet360.com">Visit Our Website</a> |
+          <a href="mailto:support@aplet360.com">Contact Support</a>
+        </div>
+        <p>© 2024 Aplet360. All rights reserved.</p>
+        <p>This email was sent regarding your RNPL waitlist registration.</p>
+      </div>
+    </div>
+  </body>
+</html>

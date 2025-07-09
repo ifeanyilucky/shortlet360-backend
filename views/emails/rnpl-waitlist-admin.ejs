@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New RNPL Waitlist Registration - Aplet360</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #1a365d;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #1a365d;
+            margin-bottom: 10px;
+        }
+        .title {
+            color: #1a365d;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .alert {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .details-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .details-section h3 {
+            color: #1a365d;
+            margin-top: 0;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+        .detail-row {
+            display: flex;
+            margin-bottom: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #1a365d;
+            width: 180px;
+            flex-shrink: 0;
+        }
+        .detail-value {
+            color: #333;
+            flex: 1;
+        }
+        .submission-id {
+            font-family: 'Courier New', monospace;
+            background-color: #e6f3ff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #1a365d;
+            display: inline-block;
+        }
+        .priority {
+            background-color: #dc3545;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 14px;
+        }
+        .action-required {
+            background-color: #e6f3ff;
+            border-left: 4px solid #1a365d;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Aplet360 Admin</div>
+            <p style="color: #64748b; margin: 0;">RNPL Waitlist Management</p>
+        </div>
+
+        <div class="alert">
+            🚨 NEW RNPL WAITLIST REGISTRATION <span class="priority">Action Required</span>
+        </div>
+
+        <h1 class="title">New RNPL Waitlist Registration</h1>
+
+        <div class="action-required">
+            <p><strong>Submission ID:</strong> <span class="submission-id"><%= submissionId %></span></p>
+            <p>A new user has joined the RNPL waitlist. Please review their information and begin the pre-qualification process.</p>
+        </div>
+
+        <div class="details-section">
+            <h3>👤 Personal Information</h3>
+            <div class="detail-row">
+                <div class="detail-label">Full Name:</div>
+                <div class="detail-value"><%= fullName %></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Email Address:</div>
+                <div class="detail-value"><%= email %></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Phone Number:</div>
+                <div class="detail-value"><%= phone %></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Occupation:</div>
+                <div class="detail-value"><%= occupation %></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">Current Address:</div>
+                <div class="detail-value"><%= address %></div>
+            </div>
+        </div>
+
+        <div class="details-section">
+            <h3>💼 Employment Information</h3>
+            <div class="detail-row">
+                <div class="detail-label">Job Type:</div>
+                <div class="detail-value"><%= jobType %></div>
+            </div>
+            <% if (monthlyIncome) { %>
+            <div class="detail-row">
+                <div class="detail-label">Monthly Income:</div>
+                <div class="detail-value"><%= monthlyIncome %></div>
+            </div>
+            <% } %>
+        </div>
+
+        <div class="details-section">
+            <h3>🏠 Rental Information</h3>
+            <% if (currentRentAmount) { %>
+            <div class="detail-row">
+                <div class="detail-label">Current Rent Amount:</div>
+                <div class="detail-value"><%= currentRentAmount %></div>
+            </div>
+            <% } %>
+            <% if (preferredLocation) { %>
+            <div class="detail-row">
+                <div class="detail-label">Preferred Location:</div>
+                <div class="detail-value"><%= preferredLocation %></div>
+            </div>
+            <% } %>
+        </div>
+
+        <div class="action-required">
+            <h3>📋 Next Steps:</h3>
+            <ul>
+                <li>Review the applicant's information for completeness</li>
+                <li>Begin the pre-qualification assessment process</li>
+                <li>Contact the applicant if additional information is needed</li>
+                <li>Update the waitlist status in the admin dashboard</li>
+                <li>Prepare for RNPL service launch communications</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p><strong>Submission Time:</strong> <%= new Date().toLocaleString() %></p>
+            <p>© 2024 Aplet360 Admin System. All rights reserved.</p>
+            <p>This is an automated notification from the RNPL waitlist system.</p>
+        </div>
+    </div>
+</body>
+</html>

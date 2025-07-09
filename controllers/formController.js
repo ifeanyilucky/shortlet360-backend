@@ -9,7 +9,9 @@ const {
   DisputeResolution,
   InspectionRequest,
   PropertyManagement,
+  RNPLWaitlist,
 } = require("../models/formSubmission");
+const Newsletter = require("../models/newsletter");
 
 /**
  * Submit Home Service form
@@ -840,6 +842,150 @@ const submitPropertyManagementForm = async (req, res) => {
   }
 };
 
+/**
+ * Submit RNPL Waitlist form
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+const submitRNPLWaitlistForm = async (req, res) => {
+  try {
+    const {
+      fullName,
+      email,
+      phone,
+      occupation,
+      address,
+      jobType,
+      monthlyIncome,
+      currentRentAmount,
+      preferredLocation,
+    } = req.body;
+
+    // Validate required fields
+    if (!fullName || !email || !phone || !occupation || !address || !jobType) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Please provide all required fields",
+      });
+    }
+
+    // Generate unique submission ID
+    const submissionId = `RNPL-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
+
+    // Save to database
+    const rnplWaitlistSubmission = new RNPLWaitlist({
+      submission_id: submissionId,
+      full_name: fullName,
+      email,
+      phone,
+      occupation,
+      address,
+      job_type: jobType,
+      monthly_income: monthlyIncome,
+      current_rent_amount: currentRentAmount,
+      preferred_location: preferredLocation,
+    });
+
+    await rnplWaitlistSubmission.save();
+
+    // Automatically subscribe user to newsletter
+    try {
+      // Check if email already exists in newsletter
+      const existingSubscription = await Newsletter.findOne({
+        email: email.toLowerCase(),
+      });
+
+      if (!existingSubscription) {
+        // Create new newsletter subscription with source as 'rnpl_waitlist'
+        await Newsletter.create({
+          email: email.toLowerCase(),
+          source: "rnpl_waitlist",
+          user: null, // RNPL waitlist users are not necessarily registered users
+        });
+        console.log(`Added ${email} to newsletter from RNPL waitlist`);
+      } else if (existingSubscription.status === "unsubscribed") {
+        // Reactivate subscription if previously unsubscribed
+        existingSubscription.status = "active";
+        existingSubscription.subscribed_at = new Date();
+        existingSubscription.unsubscribed_at = null;
+        await existingSubscription.save();
+        console.log(
+          `Reactivated newsletter subscription for ${email} from RNPL waitlist`
+        );
+      }
+    } catch (newsletterError) {
+      console.error("Error subscribing to newsletter:", newsletterError);
+      // Don't fail the RNPL submission if newsletter subscription fails
+    }
+
+    // Send confirmation email to user
+    try {
+      const emailTemplate = await ejs.renderFile(
+        path.join(__dirname, "../views/emails/rnpl-waitlist-confirmation.ejs"),
+        {
+          fullName,
+          submissionId,
+        }
+      );
+
+      await sendEmail({
+        to: email,
+        subject: "Welcome to RNPL Waitlist - Aplet360",
+        html: emailTemplate,
+      });
+    } catch (emailError) {
+      console.error("Error sending confirmation email:", emailError);
+      // Don't fail the request if email fails
+    }
+
+    // Send notification email to admin
+    try {
+      const adminEmailTemplate = await ejs.renderFile(
+        path.join(__dirname, "../views/emails/rnpl-waitlist-admin.ejs"),
+        {
+          fullName,
+          email,
+          phone,
+          occupation,
+          address,
+          jobType,
+          monthlyIncome,
+          currentRentAmount,
+          preferredLocation,
+          submissionId,
+        }
+      );
+
+      await sendEmail({
+        to: "admin@aplet360.com",
+        subject: `New RNPL Waitlist Registration - ${submissionId}`,
+        html: adminEmailTemplate,
+      });
+    } catch (emailError) {
+      console.error("Error sending admin notification email:", emailError);
+      // Don't fail the request if email fails
+    }
+
+    res.status(StatusCodes.CREATED).json({
+      success: true,
+      message: "Successfully joined RNPL waitlist",
+      data: {
+        submissionId,
+        fullName,
+        email,
+      },
+    });
+  } catch (error) {
+    console.error("Error submitting RNPL waitlist form:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Failed to join waitlist. Please try again later.",
+    });
+  }
+};
+
 module.exports = {
   submitHomeServiceForm,
   submitBecomeArtisanForm,
@@ -847,4 +993,5 @@ module.exports = {
   submitDisputeResolutionForm,
   submitInspectionRequest,
   submitPropertyManagementForm,
+  submitRNPLWaitlistForm,
 };

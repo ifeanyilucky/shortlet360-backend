@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>New Tenant Notification - Aplet360</title>
+    <%- include('layout/emailStyles') %>
+  </head>
+  <body>
+    <div class="email-container">
+      <%- include('layout/emailLayout', { title: 'New Tenant Notification',
+      subtitle: 'You have a new tenant for your property' }) %>
+
+      <div class="content">
+        <h2>Hello <%= ownerName %>,</h2>
+
+        <p>
+          Great news! You have a new tenant for your property. Here are the
+          details:
+        </p>
+
+        <div class="info-card">
+          <h3>Tenant Information</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <strong>Tenant Name:</strong>
+              <span><%= tenantName %></span>
+            </div>
+            <div class="info-item">
+              <strong>Property:</strong>
+              <span><%= propertyName %></span>
+            </div>
+            <div class="info-item">
+              <strong>Property Address:</strong>
+              <span><%= propertyAddress %></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <h3>Lease Details</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <strong>Lease Start Date:</strong>
+              <span><%= leaseStartDate %></span>
+            </div>
+            <div class="info-item">
+              <strong>Lease End Date:</strong>
+              <span><%= leaseEndDate %></span>
+            </div>
+            <div class="info-item">
+              <strong>Monthly Rent:</strong>
+              <span>₦<%= monthlyRent %></span>
+            </div>
+            <div class="info-item">
+              <strong>Annual Rent:</strong>
+              <span>₦<%= annualRent %></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="important-notice">
+          <h3>Next Steps</h3>
+          <ul>
+            <li>Review the tenant's information in your dashboard</li>
+            <li>Prepare the property for move-in</li>
+            <li>Schedule a property inspection if needed</li>
+            <li>Ensure all utilities are properly set up</li>
+            <li>Provide the tenant with move-in instructions</li>
+          </ul>
+        </div>
+
+        <div class="cta-section">
+          <p>
+            You can view and manage this tenant through your property owner
+            dashboard.
+          </p>
+          <a href="https://aplet360.com/owner/tenants" class="cta-button"
+            >View Tenant Details</a
+          >
+        </div>
+
+        <p>
+          If you have any questions or need assistance, please don't hesitate to
+          contact our support team.
+        </p>
+
+        <p>Best regards,<br />The Aplet360 Team</p>
+      </div>
+
+      <%- include('layout/emailFooter') %>
+    </div>
+  </body>
+</html>

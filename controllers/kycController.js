@@ -595,6 +595,11 @@ const verifyEmail = async (req, res) => {
  * Submit Tier 1 verification (phone and NIN)
  */
 const submitTier1Verification = async (req, res) => {
+  console.log("Tier 1 verification request received:", {
+    body: req.body,
+    user_id: req.user._id,
+  });
+
   const { phone_number, nin } = req.body;
 
   if (!phone_number) {
@@ -605,15 +610,21 @@ const submitTier1Verification = async (req, res) => {
     throw new BadRequestError("NIN is required");
   }
 
-  // Basic phone number format validation (Nigerian numbers)
-  const phoneRegex = /^\+234[789][01]\d{8}$|^[789][01]\d{8}$/;
-  if (!phoneRegex.test(phone_number.replace(/\s+/g, ""))) {
-    throw new BadRequestError("Please provide a valid Nigerian phone number");
+  // Ensure both values are strings
+  const phoneString = String(phone_number).trim();
+  const ninString = String(nin).trim();
+
+  if (!phoneString) {
+    throw new BadRequestError("Phone number cannot be empty");
+  }
+
+  if (!ninString) {
+    throw new BadRequestError("NIN cannot be empty");
   }
 
   // Basic NIN format validation (11 digits)
   const ninRegex = /^\d{11}$/;
-  if (!ninRegex.test(nin)) {
+  if (!ninRegex.test(ninString)) {
     throw new BadRequestError("NIN must be exactly 11 digits");
   }
 
@@ -625,15 +636,15 @@ const submitTier1Verification = async (req, res) => {
 
   // Log the verification attempt for debugging
   console.log(`Tier 1 verification attempt for user ${user._id}:`, {
-    submitted_phone: phone_number,
+    submitted_phone: phoneString,
     current_phone: user.phone_number,
-    submitted_nin: nin,
+    submitted_nin: ninString,
     current_tier1_status: user.kyc?.tier1?.status,
   });
 
   // Check if Tier 1 is already verified and phone number is being changed
   const isAlreadyVerified = user.kyc?.tier1?.status === "verified";
-  const phoneNumberChanged = user.phone_number !== phone_number;
+  const phoneNumberChanged = user.phone_number !== phoneString;
 
   if (isAlreadyVerified && phoneNumberChanged) {
     throw new BadRequestError(
@@ -655,7 +666,7 @@ const submitTier1Verification = async (req, res) => {
 
       // Verify phone number using YouVerify
       phoneVerificationResponse = await youverify.verifyPhoneNumber(
-        phone_number
+        phoneString
       );
 
       // Check phone verification result
@@ -674,7 +685,7 @@ const submitTier1Verification = async (req, res) => {
 
     // Always verify NIN (as it's required for Tier 1)
     const ninVerificationResponse = await youverify.verifyNIN(
-      nin,
+      ninString,
       user.first_name,
       user.last_name
     );
@@ -691,10 +702,10 @@ const submitTier1Verification = async (req, res) => {
 
     // Prepare the update object
     const updateData = {
-      phone_number: phone_number, // Always update to ensure consistency
+      phone_number: phoneString, // Always update to ensure consistency
       "kyc.tier1.phone_verified": true,
       "kyc.tier1.nin_verified": true,
-      "kyc.tier1.nin": nin,
+      "kyc.tier1.nin": ninString,
       // Store phone verification data from YouVerify
       "kyc.tier1.phone_verification_data": {
         verification_id: phoneVerificationResponse.data.id,
@@ -791,6 +802,21 @@ const submitTier1Verification = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("Tier 1 verification error:", error);
+
+    // Provide more specific error messages
+    if (error.message.includes("Channel's first argument")) {
+      throw new BadRequestError(
+        "Invalid phone number format. Please enter a valid Nigerian phone number."
+      );
+    }
+
+    if (error.message.includes("NIN")) {
+      throw new BadRequestError(
+        "Invalid NIN format. Please enter a valid 11-digit NIN."
+      );
+    }
+
     throw new BadRequestError(error.message || "Tier 1 verification failed");
   }
 };

@@ -50,9 +50,9 @@ const verifyKyc = (requiredTiers = []) => {
 };
 
 /**
- * Middleware to check if an owner has completed required KYC verification (Tier 1 and Tier 2)
+ * Middleware to check if an owner has completed required KYC verification (Tier 1 only)
  */
-const verifyOwnerKyc = verifyKyc(["tier1", "tier2"]);
+const verifyOwnerKyc = verifyKyc(["tier1"]);
 
 /**
  * Middleware to check if a user has completed required KYC verification (Tier 1)

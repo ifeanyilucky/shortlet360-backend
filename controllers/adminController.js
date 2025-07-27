@@ -47,6 +47,12 @@ const getDashboardStats = async (req, res) => {
       ],
     });
 
+    // Get tenant statistics
+    const tenantCount = await Tenant.countDocuments();
+    const activeTenantCount = await Tenant.countDocuments({
+      lease_status: "active",
+    });
+
     // Get revenue statistics
     const totalRevenue = await Booking.aggregate([
       { $match: { payment_status: "paid" } },
@@ -64,6 +70,8 @@ const getDashboardStats = async (req, res) => {
         pendingKycCount,
         referralCount,
         revenue,
+        tenantCount,
+        activeTenantCount,
       },
       recentUsers,
       recentProperties,
@@ -795,6 +803,280 @@ const updateTier3Verification = async (req, res) => {
   });
 };
 
+// Tenant Management
+const Tenant = require("../models/tenant");
+
+const getAllTenants = async (req, res) => {
+  const {
+    page = 1,
+    limit = 10,
+    search,
+    property_id,
+    lease_status,
+    payment_status,
+    owner_id,
+  } = req.query;
+
+  const query = {};
+
+  // Filter by property owner
+  if (owner_id) {
+    const properties = await Property.find({ owner: owner_id }).select("_id");
+    const propertyIds = properties.map((prop) => prop._id);
+    query.property_id = { $in: propertyIds };
+  }
+
+  // Filter by specific property
+  if (property_id) {
+    query.property_id = property_id;
+  }
+
+  // Filter by lease status
+  if (lease_status) {
+    query.lease_status = lease_status;
+  }
+
+  // Filter by payment status
+  if (payment_status) {
+    query.payment_status = payment_status;
+  }
+
+  // Search functionality
+  if (search) {
+    const searchRegex = new RegExp(search, "i");
+    query.$or = [
+      { "tenant.first_name": searchRegex },
+      { "tenant.last_name": searchRegex },
+      { "tenant.email": searchRegex },
+      { "property_id.property_name": searchRegex },
+    ];
+  }
+
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  const limitNum = parseInt(limit);
+
+  const tenants = await Tenant.find(query)
+    .populate("property_id", "property_name location")
+    .populate("tenant", "first_name last_name email phone")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limitNum);
+
+  const total = await Tenant.countDocuments(query);
+  const totalPages = Math.ceil(total / limitNum);
+
+  res.status(StatusCodes.OK).json({
+    data: tenants,
+    pagination: {
+      current_page: parseInt(page),
+      total_pages: totalPages,
+      total_items: total,
+      items_per_page: limitNum,
+    },
+  });
+};
+
+const getTenantById = async (req, res) => {
+  const { id } = req.params;
+
+  const tenant = await Tenant.findById(id)
+    .populate("property_id")
+    .populate("tenant", "first_name last_name email phone");
+
+  if (!tenant) {
+    throw new NotFoundError("Tenant not found");
+  }
+
+  res.status(StatusCodes.OK).json({
+    data: tenant,
+  });
+};
+
+const updateTenantStatus = async (req, res) => {
+  const { id } = req.params;
+  const { lease_status } = req.body;
+
+  if (
+    !lease_status ||
+    !["active", "expired", "terminated", "pending"].includes(lease_status)
+  ) {
+    throw new BadRequestError("Invalid lease status");
+  }
+
+  const tenant = await Tenant.findById(id);
+  if (!tenant) {
+    throw new NotFoundError("Tenant not found");
+  }
+
+  tenant.lease_status = lease_status;
+  await tenant.save();
+
+  const updatedTenant = await Tenant.findById(id)
+    .populate("property_id")
+    .populate("tenant", "first_name last_name email phone");
+
+  res.status(StatusCodes.OK).json({
+    message: "Tenant status updated successfully",
+    data: updatedTenant,
+  });
+};
+
+const updateTenantPaymentStatus = async (req, res) => {
+  const { id } = req.params;
+  const { payment_status } = req.body;
+
+  if (
+    !payment_status ||
+    !["pending", "paid", "overdue", "cancelled"].includes(payment_status)
+  ) {
+    throw new BadRequestError("Invalid payment status");
+  }
+
+  const tenant = await Tenant.findById(id);
+  if (!tenant) {
+    throw new NotFoundError("Tenant not found");
+  }
+
+  tenant.payment_status = payment_status;
+  await tenant.save();
+
+  const updatedTenant = await Tenant.findById(id)
+    .populate("property_id")
+    .populate("tenant", "first_name last_name email phone");
+
+  res.status(StatusCodes.OK).json({
+    message: "Tenant payment status updated successfully",
+    data: updatedTenant,
+  });
+};
+
+const deleteTenant = async (req, res) => {
+  const { id } = req.params;
+
+  const tenant = await Tenant.findById(id);
+  if (!tenant) {
+    throw new NotFoundError("Tenant not found");
+  }
+
+  await Tenant.findByIdAndDelete(id);
+
+  res.status(StatusCodes.OK).json({
+    message: "Tenant deleted successfully",
+  });
+};
+
+const getTenantStatistics = async (req, res) => {
+  try {
+    const tenants = await Tenant.find();
+    const totalTenants = tenants.length;
+    const activeTenants = tenants.filter(
+      (t) => t.lease_status === "active"
+    ).length;
+    const pendingTenants = tenants.filter(
+      (t) => t.lease_status === "pending"
+    ).length;
+    const expiredTenants = tenants.filter(
+      (t) => t.lease_status === "expired"
+    ).length;
+
+    const totalRentCollected = tenants.reduce((sum, tenant) => {
+      return (
+        sum +
+        tenant.rent_payment_history
+          .filter((payment) => payment.status === "paid")
+          .reduce((paymentSum, payment) => paymentSum + payment.amount, 0)
+      );
+    }, 0);
+
+    const totalInitialPayments = tenants.reduce((sum, tenant) => {
+      return (
+        sum +
+        (tenant.payment_status === "paid" ? tenant.total_initial_payment : 0)
+      );
+    }, 0);
+
+    res.status(StatusCodes.OK).json({
+      data: {
+        total_tenants: totalTenants,
+        active_tenants: activeTenants,
+        pending_tenants: pendingTenants,
+        expired_tenants: expiredTenants,
+        total_rent_collected: totalRentCollected,
+        total_initial_payments: totalInitialPayments,
+        average_monthly_rent:
+          totalTenants > 0
+            ? tenants.reduce((sum, t) => sum + t.monthly_rent, 0) / totalTenants
+            : 0,
+      },
+    });
+  } catch (error) {
+    throw new BadRequestError(error.message);
+  }
+};
+
+const addRentPayment = async (req, res) => {
+  const { id } = req.params;
+  const { month, amount, payment_reference } = req.body;
+
+  if (!month || !amount || !payment_reference) {
+    throw new BadRequestError(
+      "Month, amount, and payment reference are required"
+    );
+  }
+
+  const tenant = await Tenant.findById(id);
+  if (!tenant) {
+    throw new NotFoundError("Tenant not found");
+  }
+
+  // Check if rent is already paid for this month
+  if (tenant.isRentPaidForMonth(month)) {
+    throw new BadRequestError("Rent is already paid for this month");
+  }
+
+  await tenant.addRentPayment(month, amount, payment_reference);
+
+  const updatedTenant = await Tenant.findById(id)
+    .populate("property_id")
+    .populate("tenant", "first_name last_name email phone");
+
+  res.status(StatusCodes.OK).json({
+    message: "Rent payment added successfully",
+    data: updatedTenant,
+  });
+};
+
+const updateMaintenanceRequest = async (req, res) => {
+  const { id, requestId } = req.params;
+  const { status } = req.body;
+
+  const tenant = await Tenant.findById(id);
+  if (!tenant) {
+    throw new NotFoundError("Tenant not found");
+  }
+
+  const maintenanceRequest = tenant.maintenance_requests.id(requestId);
+  if (!maintenanceRequest) {
+    throw new NotFoundError("Maintenance request not found");
+  }
+
+  maintenanceRequest.status = status;
+  if (status === "completed") {
+    maintenanceRequest.completed_at = new Date();
+  }
+
+  await tenant.save();
+
+  const updatedTenant = await Tenant.findById(id)
+    .populate("property_id")
+    .populate("tenant", "first_name last_name email phone");
+
+  res.status(StatusCodes.OK).json({
+    message: "Maintenance request updated successfully",
+    data: updatedTenant,
+  });
+};
+
 module.exports = {
   getDashboardStats,
   getAllUsers,
@@ -817,4 +1099,13 @@ module.exports = {
   updateTier3Verification,
   getAllKycVerifications,
   getUnifiedKycVerifications,
+  // Tenant Management
+  getAllTenants,
+  getTenantById,
+  updateTenantStatus,
+  updateTenantPaymentStatus,
+  deleteTenant,
+  getTenantStatistics,
+  addRentPayment,
+  updateMaintenanceRequest,
 };

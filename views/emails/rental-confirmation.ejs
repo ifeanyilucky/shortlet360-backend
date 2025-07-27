@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rental Confirmation - Aplet360</title>
+    <%- include('layout/emailStyles') %>
+  </head>
+  <body>
+    <div class="email-container">
+      <%- include('layout/emailLayout', { title: 'Rental Confirmation',
+      subtitle: 'Your rental agreement has been confirmed' }) %>
+
+      <div class="content">
+        <h2>Hello <%= tenantName %>,</h2>
+
+        <p>
+          Congratulations! Your rental agreement has been successfully
+          confirmed. Here are the details of your rental:
+        </p>
+
+        <div class="info-card">
+          <h3>Property Details</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <strong>Property Name:</strong>
+              <span><%= propertyName %></span>
+            </div>
+            <div class="info-item">
+              <strong>Address:</strong>
+              <span><%= propertyAddress %></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <h3>Lease Information</h3>
+          <div class="info-grid">
+            <div class="info-item">
+              <strong>Lease Start Date:</strong>
+              <span><%= leaseStartDate %></span>
+            </div>
+            <div class="info-item">
+              <strong>Lease End Date:</strong>
+              <span><%= leaseEndDate %></span>
+            </div>
+            <div class="info-item">
+              <strong>Monthly Rent:</strong>
+              <span>₦<%= monthlyRent %></span>
+            </div>
+            <div class="info-item">
+              <strong>Annual Rent:</strong>
+              <span>₦<%= annualRent %></span>
+            </div>
+            <div class="info-item">
+              <strong>Security Deposit:</strong>
+              <span>₦<%= securityDeposit %></span>
+            </div>
+            <div class="info-item">
+              <strong>Total Initial Payment:</strong>
+              <span>₦<%= totalPayment %></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="important-notice">
+          <h3>Important Information</h3>
+          <ul>
+            <li>
+              Please ensure you have all necessary documents ready for move-in
+            </li>
+            <li>Contact your property manager for any special arrangements</li>
+            <li>Keep this confirmation for your records</li>
+            <li>Rent payments are due on the 1st of each month</li>
+          </ul>
+        </div>
+
+        <div class="cta-section">
+          <p>
+            If you have any questions about your rental agreement, please don't
+            hesitate to contact us.
+          </p>
+          <a href="https://aplet360.com/contact" class="cta-button"
+            >Contact Support</a
+          >
+        </div>
+
+        <p>Thank you for choosing Aplet360 for your housing needs!</p>
+
+        <p>Best regards,<br />The Aplet360 Team</p>
+      </div>
+
+      <%- include('layout/emailFooter') %>
+    </div>
+  </body>
+</html>

@@ -39,4 +39,20 @@ router.patch("/kyc/:userId/tier1", adminController.updateTier1Verification);
 router.patch("/kyc/:userId/tier2", adminController.updateTier2Verification);
 router.patch("/kyc/:userId/tier3", adminController.updateTier3Verification);
 
+// Tenant management
+router.get("/tenants", adminController.getAllTenants);
+router.get("/tenants/statistics", adminController.getTenantStatistics);
+router.get("/tenants/:id", adminController.getTenantById);
+router.patch("/tenants/:id/status", adminController.updateTenantStatus);
+router.patch(
+  "/tenants/:id/payment-status",
+  adminController.updateTenantPaymentStatus
+);
+router.delete("/tenants/:id", adminController.deleteTenant);
+router.post("/tenants/:id/rent-payment", adminController.addRentPayment);
+router.patch(
+  "/tenants/:id/maintenance/:requestId",
+  adminController.updateMaintenanceRequest
+);
+
 module.exports = router;

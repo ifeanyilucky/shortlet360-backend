@@ -108,7 +108,7 @@ const propertyController = {
     res.status(201).json({ success: true, data: property });
   },
 
-  // Get all properties with filtering, searching and pagination
+  // Get all properties with filtering, searching and pagination (public API)
   getAllProperties: async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
@@ -203,22 +203,24 @@ const propertyController = {
         filter.is_active = req.query.isActive === "true";
       }
 
-      // Publication status filter - for admin users
-      if (req.query.publication_status) {
-        filter.publication_status = req.query.publication_status;
-      } else if (!req.user || req.user.role !== "admin") {
-        // For non-admin users or public pages, only show published properties
-        filter.publication_status = "published";
-      }
-
-      // If owner is viewing their own properties, show all regardless of publication status
+      // Publication status filter - prioritize owner access over general rules
       if (
         req.user &&
         req.query.owner &&
         req.query.owner === req.user._id.toString()
       ) {
-        // Remove the publication_status filter for owners viewing their own properties
-        delete filter.publication_status;
+        // If owner is viewing their own properties, show all regardless of publication status
+        // Only apply publication_status filter if explicitly requested
+        if (req.query.publication_status) {
+          filter.publication_status = req.query.publication_status;
+        }
+        // Otherwise, don't filter by publication_status - show all owner's properties
+      } else if (req.query.publication_status) {
+        // For admin users or explicit requests, use the provided publication_status
+        filter.publication_status = req.query.publication_status;
+      } else if (!req.user || req.user.role !== "admin") {
+        // For non-admin users or public pages, only show published properties
+        filter.publication_status = "published";
       }
 
       console.log("filter", filter);
@@ -251,6 +253,139 @@ const propertyController = {
       res.status(500).json({
         success: false,
         message: "Error fetching properties",
+        error: error.message,
+      });
+    }
+  },
+
+  // Get owner properties with filtering, searching and pagination (authenticated)
+  getOwnerProperties: async (req, res) => {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+      console.log("Owner properties request - req.query", req.query);
+
+      // Build filter object - always filter by owner
+      let filter = {
+        owner: req.user._id, // Always filter by authenticated user
+      };
+
+      // Property ID search (exact match for short_id)
+      if (req.query.propertyId) {
+        filter.short_id = req.query.propertyId.toUpperCase();
+      }
+
+      // Text search on property name, description, and location
+      if (req.query.search && !req.query.propertyId) {
+        filter.$or = [
+          { property_name: { $regex: req.query.search, $options: "i" } },
+          { property_description: { $regex: req.query.search, $options: "i" } },
+          { "location.city": { $regex: req.query.search, $options: "i" } },
+          { "location.state": { $regex: req.query.search, $options: "i" } },
+          {
+            "location.street_address": {
+              $regex: req.query.search,
+              $options: "i",
+            },
+          },
+          { short_id: { $regex: req.query.search, $options: "i" } },
+        ];
+      }
+
+      // Price range filter
+      if (req.query.minPrice || req.query.maxPrice) {
+        filter["pricing.per_day.base_price"] = {};
+        if (req.query.minPrice)
+          filter["pricing.per_day.base_price"].$gte = parseInt(
+            req.query.minPrice
+          );
+        if (req.query.maxPrice)
+          filter["pricing.per_day.base_price"].$lte = parseInt(
+            req.query.maxPrice
+          );
+      }
+
+      // Property category filter
+      if (req.query.category) {
+        filter.property_category = req.query.category.toLowerCase();
+      }
+
+      // Property type filter
+      if (req.query.propertyType && req.query.propertyType !== "All Types") {
+        filter.property_type = req.query.propertyType.toLowerCase();
+      }
+
+      // Location filters
+      if (req.query.city) {
+        filter["location.city"] = { $regex: req.query.city, $options: "i" };
+      }
+      if (req.query.state) {
+        filter["location.state"] = { $regex: req.query.state, $options: "i" };
+      }
+
+      // Amenities filter
+      if (req.query.amenities) {
+        const amenitiesList = req.query.amenities
+          .split(",")
+          .map((item) => item.trim());
+        filter.amenities = { $all: amenitiesList };
+      }
+
+      // Room filters
+      if (req.query.bedrooms) {
+        filter.bedroom_count = parseInt(req.query.bedrooms);
+      }
+      if (req.query.bathrooms) {
+        filter.bathroom_count = parseInt(req.query.bathrooms);
+      }
+      if (req.query.maxGuests) {
+        filter.max_guests = { $gte: parseInt(req.query.maxGuests) };
+      }
+
+      // Active status filter
+      if (req.query.isActive !== undefined) {
+        filter.is_active = req.query.isActive === "true";
+      }
+
+      // Publication status filter - owners can see all their properties by default
+      if (req.query.publication_status) {
+        filter.publication_status = req.query.publication_status;
+      }
+      // No default publication_status filter for owners - they see all their properties
+
+      console.log("Owner properties filter", filter);
+
+      // Get total count for pagination
+      const total = await Property.countDocuments(filter);
+
+      // Get filtered and paginated properties
+      const properties = await Property.find(filter)
+        .populate("owner", "name email")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      console.log("Owner properties found:", properties.length);
+
+      res.status(200).json({
+        success: true,
+        data: properties,
+        pagination: {
+          current: page,
+          total: Math.ceil(total / limit),
+          pages: Math.ceil(total / limit),
+          perPage: limit,
+          totalDocs: total,
+          hasNextPage: page < Math.ceil(total / limit),
+          hasPrevPage: page > 1,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching owner properties:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error fetching your properties",
         error: error.message,
       });
     }

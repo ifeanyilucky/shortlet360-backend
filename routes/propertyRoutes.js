@@ -4,9 +4,12 @@ const propertyController = require("../controllers/propertyController");
 const auth = require("../middlewares/authentication");
 const { verifyOwnerKyc } = require("../middlewares/kycVerification");
 
-// Routes that require KYC verification for owners
-router.post("/", auth, verifyOwnerKyc, propertyController.createProperty);
+// Public routes
 router.get("/", propertyController.getAllProperties);
+
+// Authenticated routes for owners
+router.post("/", auth, verifyOwnerKyc, propertyController.createProperty);
+router.get("/owner", auth, propertyController.getOwnerProperties);
 router.get("/statistics", auth, propertyController.getOwnerStatistics);
 router.get("/:id", propertyController.getProperty);
 router.put("/:id", auth, verifyOwnerKyc, propertyController.updateProperty);

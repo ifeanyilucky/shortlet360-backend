@@ -15,6 +15,7 @@ const referralRoutes = require("./referralRoutes");
 const blogRoutes = require("./blogRoutes");
 const discountCodeRoutes = require("./discountCodeRoutes");
 const newsletterRoutes = require("./newsletterRoutes");
+const jobController = require("../controllers/jobController");
 
 router.use("/auth", authRouter);
 router.use("/auth/admin", adminAuthRoutes);
@@ -30,5 +31,8 @@ router.use("/referral", referralRoutes);
 router.use("/blog", blogRoutes);
 router.use("/discount-codes", discountCodeRoutes);
 router.use("/newsletter", newsletterRoutes);
+
+// Public job routes (no authentication required)
+router.get("/jobs", jobController.getPublicJobs);
 
 module.exports = router;

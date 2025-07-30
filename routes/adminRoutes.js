@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const adminController = require("../controllers/adminController");
+const jobController = require("../controllers/jobController");
 const auth = require("../middlewares/authentication");
 const adminAuth = require("../middlewares/adminAuth");
 
@@ -54,5 +55,16 @@ router.patch(
   "/tenants/:id/maintenance/:requestId",
   adminController.updateMaintenanceRequest
 );
+
+// Job management
+router.post("/jobs", jobController.createJob);
+router.get("/jobs", jobController.getAllJobs);
+router.get("/jobs/statistics", jobController.getJobStatistics);
+router.get("/jobs/:id", jobController.getJobById);
+router.patch("/jobs/:id", jobController.updateJob);
+router.delete("/jobs/:id", jobController.deleteJob);
+router.patch("/jobs/:id/status", jobController.updateJobStatus);
+router.post("/jobs/bulk-status", jobController.bulkUpdateJobStatus);
+router.post("/jobs/:id/duplicate", jobController.duplicateJob);
 
 module.exports = router;
